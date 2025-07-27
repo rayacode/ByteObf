@@ -104,7 +104,7 @@ public class ConfigManager {
     }
 
     public void saveConfig(ByteObfConfig byteObfConfig) throws IOException {
-        try (FileWriter fw = new FileWriter("byteObfConfig.json")) {
+        try (FileWriter fw = new FileWriter("byteobfconfig.json")) {
             // Serializer for input/output file
             JsonSerializer<ByteObfConfig> serializer = (cfg, type, jsonSerializationContext) -> {
                 JsonObject jsonObject = new JsonObject();
@@ -163,7 +163,7 @@ public class ConfigManager {
     }
 
     public void loadDefaultConfig() throws IOException {
-        File f = new File("bozarConfig.json");
+        File f = new File("byteobfconfig.json");
         if(f.exists() && f.isFile())
             this.loadConfig(f);
     }
