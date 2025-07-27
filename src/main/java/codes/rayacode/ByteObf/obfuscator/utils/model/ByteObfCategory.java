@@ -1,4 +1,5 @@
 /*  ByteObf: A Java Bytecode Obfuscator
+ *  Copyright (C) 2021 vimasig
  *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -15,4 +16,22 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-rootProject.name = 'ByteObf'
+package codes.rayacode.ByteObf.obfuscator.utils.model;
+
+import com.google.gson.annotations.SerializedName;
+
+public enum ByteObfCategory {
+    @SerializedName("Stable") STABLE("Stable obfuscation options. Most options are irreversible.\nA good way to protect & speed up your application."),
+    @SerializedName("Advanced") ADVANCED("Advanced obfuscation options. Reversible.\nPowerful protection against newbies."),
+    @SerializedName("Watermark") WATERMARK("Different ways to implement watermark to your application.");
+
+    private final String description;
+
+    ByteObfCategory(String description) {
+        this.description = description;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+}

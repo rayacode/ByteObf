@@ -1,4 +1,5 @@
 /*  ByteObf: A Java Bytecode Obfuscator
+ *  Copyright (C) 2021 vimasig
  *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -15,4 +16,26 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-rootProject.name = 'ByteObf'
+package codes.rayacode.ByteObf.obfuscator.utils;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+public class FileUtils {
+
+    public static List<File> getAllFiles(File file) {
+        if(file.isFile()) return List.of(file);
+
+        File[] files = file.listFiles();
+        if(files == null) return List.of();
+
+        final var fileList = new ArrayList<File>();
+        Arrays.stream(files).forEach(f -> {
+            if(f.isFile()) fileList.add(f);
+            else fileList.addAll(getAllFiles(f));
+        });
+        return fileList;
+    }
+}

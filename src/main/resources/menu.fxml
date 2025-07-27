@@ -1,4 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
+ <!--  ByteObf: A Java Bytecode Obfuscator -->
+ <!--  Copyright (C) 2021 vimasig -->
+ <!--  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com -->
+
+ <!--  This program is free software: you can redistribute it and/or modify -->
+ <!--  it under the terms of the GNU General Public License as published by -->
+ <!--  the Free Software Foundation, either version 3 of the License, or -->
+ <!--  (at your option) any later version. -->
+
+ <!--  This program is distributed in the hope that it will be useful, -->
+ <!--  but WITHOUT ANY WARRANTY; without even the implied warranty of -->
+ <!--  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the -->
+ <!--  GNU General Public License for more details. -->
+
+ <!--  You should have received a copy of the GNU General Public License -->
+ <!--  along with this program.  If not, see <https://www.gnu.org/licenses/>. -->
+
+
+
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
@@ -13,7 +32,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.VBox?>
 
-<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" style="-fx-base: #202530;" xmlns="http://javafx.com/javafx/16" xmlns:fx="http://javafx.com/fxml/1" fx:controller="io.github.vimasig.bozar.ui.Controller">
+<AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" style="-fx-base: #202530;" xmlns="http://javafx.com/javafx/16" xmlns:fx="http://javafx.com/fxml/1" fx:controller="codes.rayacode.ByteObf.ui.Controller">
    <children>
       <TabPane prefHeight="400.0" prefWidth="550.0" tabClosingPolicy="UNAVAILABLE" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
         <tabs>

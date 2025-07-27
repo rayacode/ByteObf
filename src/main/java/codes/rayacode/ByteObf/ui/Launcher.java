@@ -15,4 +15,14 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-rootProject.name = 'ByteObf'
+package codes.rayacode.ByteObf.ui;
+
+/**
+ * A standard Java main class to launch the JavaFX application.
+ * This is necessary for non-modular applications packaged as a "fat JAR".
+ */
+public class Launcher {
+    public static void main(String[] args) {
+        App.launch(App.class, args);
+    }
+}
