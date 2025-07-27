@@ -50,6 +50,6 @@ public class ClassRenamerTransformer extends RenamerTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().getRename() != this.getEnableType().type(), ByteObfConfig.ByteObfOptions.RenameOption.OFF);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getRename() != this.getEnableType().type(), ByteObfConfig.ByteObfOptions.RenameOption.OFF);
     }
 }

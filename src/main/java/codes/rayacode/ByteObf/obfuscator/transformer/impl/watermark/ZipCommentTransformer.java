@@ -33,11 +33,11 @@ public class ZipCommentTransformer extends ClassTransformer {
 
     @Override
     public void transformOutput(JarOutputStream jarOutputStream) {
-        jarOutputStream.setComment(this.getBozar().getConfig().getOptions().getWatermarkOptions().getZipCommentText());
+        jarOutputStream.setComment(this.getByteObf().getConfig().getOptions().getWatermarkOptions().getZipCommentText());
     }
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().getWatermarkOptions().isZipComment(), "Obfuscation provided by\nhttps://github.com/vimasig/ByteObf");
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getWatermarkOptions().isZipComment(), "Obfuscation provided by\nhttps://github.com/rayacode/ByteObf");
     }
 }

@@ -95,7 +95,7 @@ public class ConstantTransformer extends ClassTransformer {
                         }
                     }
 
-                    if (this.getBozar().getConfig().getOptions().getConstantObfuscation() == ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.FLOW) {
+                    if (this.getByteObf().getConfig().getOptions().getConstantObfuscation() == ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.FLOW) {
                         final InsnList flow = new InsnList(), afterFlow = new InsnList();
                         final LabelNode label0 = new LabelNode(), label1 = new LabelNode(), label2 = new LabelNode(), label3 = new LabelNode();
                         int index = methodNode.maxLocals + 2;
@@ -255,7 +255,7 @@ public class ConstantTransformer extends ClassTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> ((List<?>)this.getEnableType().type()).contains(this.getBozar().getConfig().getOptions().getConstantObfuscation()),
+        return new ByteObfConfig.EnableType(() -> ((List<?>)this.getEnableType().type()).contains(this.getByteObf().getConfig().getOptions().getConstantObfuscation()),
                 List.of(ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.LIGHT, ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.FLOW));
     }
 }

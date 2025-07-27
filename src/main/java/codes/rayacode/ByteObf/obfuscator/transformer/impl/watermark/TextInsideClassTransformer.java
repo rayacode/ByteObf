@@ -32,11 +32,11 @@ public class TextInsideClassTransformer extends ClassTransformer {
     
     @Override
     public void transformClassWriter(ClassWriter classWriter) {
-        classWriter.newUTF8(this.getBozar().getConfig().getOptions().getWatermarkOptions().getTextInsideClassText());
+        classWriter.newUTF8(this.getByteObf().getConfig().getOptions().getWatermarkOptions().getTextInsideClassText());
     }
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().getWatermarkOptions().isTextInsideClass(), "ByteObf");
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getWatermarkOptions().isTextInsideClass(), "ByteObf");
     }
 }

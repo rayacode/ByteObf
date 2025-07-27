@@ -37,7 +37,7 @@ public class LineNumberTransformer extends ClassTransformer {
 
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
-        switch (this.getBozar().getConfig().getOptions().getLineNumbers()) {
+        switch (this.getByteObf().getConfig().getOptions().getLineNumbers()) {
             case DELETE -> Arrays.stream(methodNode.instructions.toArray())
                     .filter(insn -> insn instanceof LineNumberNode)
                     .map(insn -> (LineNumberNode)insn)
@@ -52,7 +52,7 @@ public class LineNumberTransformer extends ClassTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> ((List<?>)this.getEnableType().type()).contains(this.getBozar().getConfig().getOptions().getLineNumbers()),
+        return new ByteObfConfig.EnableType(() -> ((List<?>)this.getEnableType().type()).contains(this.getByteObf().getConfig().getOptions().getLineNumbers()),
                 List.of(ByteObfConfig.ByteObfOptions.LineNumberOption.DELETE, ByteObfConfig.ByteObfOptions.LineNumberOption.RANDOMIZE));
     }
 }

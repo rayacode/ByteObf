@@ -35,7 +35,7 @@ public class LocalVariableTransformer extends ClassTransformer {
 
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
-        switch (this.getBozar().getConfig().getOptions().getLocalVariables()) {
+        switch (this.getByteObf().getConfig().getOptions().getLocalVariables()) {
             case DELETE -> {
                 methodNode.localVariables = null;
                 methodNode.parameters = null;
@@ -54,7 +54,7 @@ public class LocalVariableTransformer extends ClassTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> ((List<?>)this.getEnableType().type()).contains(this.getBozar().getConfig().getOptions().getLocalVariables()),
+        return new ByteObfConfig.EnableType(() -> ((List<?>)this.getEnableType().type()).contains(this.getByteObf().getConfig().getOptions().getLocalVariables()),
                 List.of(ByteObfConfig.ByteObfOptions.LocalVariableOption.DELETE, ByteObfConfig.ByteObfOptions.LocalVariableOption.OBFUSCATE));
     }
 }

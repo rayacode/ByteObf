@@ -241,6 +241,6 @@ public class HeavyControlFlowTransformer extends ControlFlowTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().getControlFlowObfuscation() == this.getEnableType().type(), ByteObfConfig.ByteObfOptions.ControlFlowObfuscationOption.HEAVY);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getControlFlowObfuscation() == this.getEnableType().type(), ByteObfConfig.ByteObfOptions.ControlFlowObfuscationOption.HEAVY);
     }
 }

@@ -116,6 +116,6 @@ public class LightControlFlowTransformer extends ControlFlowTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().getControlFlowObfuscation() == this.getEnableType().type(), ByteObfConfig.ByteObfOptions.ControlFlowObfuscationOption.LIGHT);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getControlFlowObfuscation() == this.getEnableType().type(), ByteObfConfig.ByteObfOptions.ControlFlowObfuscationOption.LIGHT);
     }
 }

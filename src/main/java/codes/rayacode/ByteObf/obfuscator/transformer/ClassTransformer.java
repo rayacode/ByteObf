@@ -57,7 +57,7 @@ public abstract class ClassTransformer implements Opcodes {
     public void transformOutput(JarOutputStream jarOutputStream) {}
     public void transformClassWriter(ClassWriter classWriter) {}
 
-    public final ByteObf getBozar() {
+    public final ByteObf getByteObf() {
         return byteObf;
     }
 
@@ -88,11 +88,11 @@ public abstract class ClassTransformer implements Opcodes {
     }
 
     protected ClassNode findClass(String className) {
-        return this.getBozar().getClasses().stream().filter(cn -> cn.name.equals(className)).findFirst().orElse(null);
+        return this.getByteObf().getClasses().stream().filter(cn -> cn.name.equals(className)).findFirst().orElse(null);
     }
 
     protected List<ClassNode> findClasses(List<String> classNames) {
-        return this.getBozar().getClasses().stream()
+        return this.getByteObf().getClasses().stream()
                 .filter(cn -> classNames.contains(cn.name))
                 .collect(Collectors.toList());
     }

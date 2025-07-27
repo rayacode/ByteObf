@@ -44,7 +44,7 @@ public class ShuffleTransformer extends ClassTransformer {
     }
 
     private void shuffle() {
-        var classes = this.getBozar().getClasses();
+        var classes = this.getByteObf().getClasses();
         Collections.shuffle(classes);
         classes.forEach(ShuffleTransformer::shuffle);
     }
@@ -86,6 +86,6 @@ public class ShuffleTransformer extends ClassTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().isShuffle(), boolean.class);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().isShuffle(), boolean.class);
     }
 }

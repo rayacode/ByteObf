@@ -38,6 +38,6 @@ public class InnerClassTransformer extends ClassTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().isRemoveInnerClasses(), boolean.class);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().isRemoveInnerClasses(), boolean.class);
     }
 }

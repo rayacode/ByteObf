@@ -136,7 +136,7 @@ public class MethodRenamerTransformer extends RenamerTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().getRename() != this.getEnableType().type(), ByteObfConfig.ByteObfOptions.RenameOption.OFF);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getRename() != this.getEnableType().type(), ByteObfConfig.ByteObfOptions.RenameOption.OFF);
     }
 
     /**
@@ -170,7 +170,7 @@ public class MethodRenamerTransformer extends RenamerTransformer {
      * @return all available class nodes that extends given class node
      */
     private List<ClassNode> getUpperSuperHierarchy(ClassNode classNode) {
-        var upperClasses = this.getBozar().getClasses().stream()
+        var upperClasses = this.getByteObf().getClasses().stream()
                 .filter(cn -> cn.superName != null && classNode.name != null && cn.superName.equals(classNode.name))
                 .collect(Collectors.toList());
         var tmpArr = upperClasses.stream()
@@ -185,7 +185,7 @@ public class MethodRenamerTransformer extends RenamerTransformer {
      * @return all available class nodes that implements given class node
      */
     private List<ClassNode> getUpperInterfaceHierarchy(ClassNode classNode) {
-        var upperClasses = this.getBozar().getClasses().stream()
+        var upperClasses = this.getByteObf().getClasses().stream()
                 .filter(cn -> cn.interfaces.contains(classNode.name))
                 .collect(Collectors.toList());
         var tmpArr = upperClasses.stream()

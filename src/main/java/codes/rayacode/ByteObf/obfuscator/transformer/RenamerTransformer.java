@@ -39,7 +39,7 @@ public abstract class RenamerTransformer extends ClassTransformer {
     }
 
     protected String registerMap(String key) {
-        var str = switch (this.getBozar().getConfig().getOptions().getRename()) {
+        var str = switch (this.getByteObf().getConfig().getOptions().getRename()) {
             case ALPHABET -> StringUtils.getAlphabetCombinations().get(index);
             case INVISIBLE -> String.valueOf((char)(index + '\u3050'));
             case IlIlIlIlIl -> getRandomUniqueIl(400);

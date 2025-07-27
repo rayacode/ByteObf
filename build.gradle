@@ -15,8 +15,6 @@
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-
 plugins {
     id 'java'
     id 'application'
@@ -24,8 +22,9 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
-group = 'codes.rayacode' // Changed to your new group
-version = '2.0.1' // Updated version
+group = 'codes.rayacode.ByteObf'
+version = '2.0.1'
+
 
 repositories {
     mavenCentral()
@@ -37,22 +36,21 @@ java {
     }
 }
 
-// FIX: Switched to configureEach for better performance and to resolve the warning.
-tasks.withType(JavaCompile).configureEach {
+tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
 application {
     mainClass = 'codes.rayacode.ByteObf.ui.Launcher'
-    applicationDefaultJvmArgs = ['--add-modules', 'javafx.controls,javafx.fxml']
 }
 
 javafx {
     version = "23"
-    modules = [ 'javafx.controls', 'javafx.fxml' ]
+    modules = [ 'javafx.controls', 'javafx.fxml' ] // Specify required JavaFX modules. [1, 16]
 }
 
 dependencies {
+
     // ASM
     implementation 'org.ow2.asm:asm:9.8'
     implementation 'org.ow2.asm:asm-tree:9.8'

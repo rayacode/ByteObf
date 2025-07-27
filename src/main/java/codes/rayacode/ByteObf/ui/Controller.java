@@ -380,7 +380,7 @@ public class Controller {
     }
 
     public void log(String s) {
-        s = "[BozarGUI] " + s;
+        s = "[BYTEOBFGUI] " + s;
         System.out.println(s);
     }
 }

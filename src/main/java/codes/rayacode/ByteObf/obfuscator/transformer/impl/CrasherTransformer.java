@@ -65,6 +65,6 @@ public class CrasherTransformer extends ClassTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().isCrasher(), boolean.class);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().isCrasher(), boolean.class);
     }
 }

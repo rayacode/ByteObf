@@ -37,7 +37,7 @@ public class FieldRenamerTransformer extends RenamerTransformer {
         // Map all fields in this class node and its super classes (if not mapped)
         getSuperHierarchy(classNode)
                 .forEach(cn -> cn.fields.stream()
-                        .filter(fieldNode -> !this.getBozar().isExcluded(this, ASMUtils.getName(cn, fieldNode)))
+                        .filter(fieldNode -> !this.getByteObf().isExcluded(this, ASMUtils.getName(cn, fieldNode)))
                         .filter(fieldNode -> !this.isMapRegistered(getFieldMapFormat(cn, fieldNode)))
                         .forEach(fieldNode -> this.registerMap(getFieldMapFormat(cn, fieldNode)))
                 );
@@ -58,6 +58,6 @@ public class FieldRenamerTransformer extends RenamerTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getBozar().getConfig().getOptions().getRename() != this.getEnableType().type(), ByteObfConfig.ByteObfOptions.RenameOption.OFF);
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getRename() != this.getEnableType().type(), ByteObfConfig.ByteObfOptions.RenameOption.OFF);
     }
 }

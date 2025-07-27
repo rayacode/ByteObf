@@ -59,7 +59,7 @@ ByteObf can be run headlessly from the command line, which is useful for integra
 Command	Description
 -input	Target file path to obfuscate.
 -output	Output path for the obfuscated JAR.
--config	Path to a configuration file (bozarConfig.json or your renamed version).
+-config	Path to a configuration file byteobfconfig.json
 -noupdate	Disables the startup update check.
 -console	Runs the application without a GUI and starts the obfuscation task immediately.
 License
