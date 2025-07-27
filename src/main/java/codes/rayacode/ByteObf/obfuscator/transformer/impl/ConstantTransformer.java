@@ -1,6 +1,6 @@
 /*  ByteObf: A Java Bytecode Obfuscator
  *  Copyright (C) 2021 vimasig
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,7 +15,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-
 package codes.rayacode.ByteObf.obfuscator.transformer.impl;
 
 import codes.rayacode.ByteObf.obfuscator.ByteObf;
@@ -33,6 +32,11 @@ import java.util.stream.IntStream;
 
 public class ConstantTransformer extends ClassTransformer {
 
+    private static final int METHOD_SIZE_THRESHOLD = 30000;
+    // **FIX**: Prevent huge strings from being obfuscated, as they cause massive class bloat.
+    private static final int MAX_STRING_LENGTH_TO_OBFUSCATE = 128;
+    private static final double INJECTION_RATE = 0.30;
+
     public ConstantTransformer(ByteObf byteObf) {
         super(byteObf, "Constant obfuscation", ByteObfCategory.ADVANCED);
     }
@@ -41,27 +45,23 @@ public class ConstantTransformer extends ClassTransformer {
         Arrays.stream(methodNode.instructions.toArray())
                 .filter(insn -> ASMUtils.isPushInt(insn) || ASMUtils.isPushLong(insn))
                 .forEach(insn -> {
-                    final InsnList insnList = new InsnList();
+                    if(random.nextDouble() > INJECTION_RATE) return;
 
+                    final InsnList insnList = new InsnList();
                     final ValueType valueType = this.getValueType(insn);
                     final long value = switch (valueType) {
                         case INTEGER -> ASMUtils.getPushedInt(insn);
                         case LONG -> ASMUtils.getPushedLong(insn);
                     };
 
-                    // Randomly selected number obfuscation type
                     int type = random.nextInt(2);
-
-                    // Bounds check
                     final byte shift = 2;
                     final boolean canShift = switch (valueType) {
                         case INTEGER -> this.canShiftLeft(shift, value, Integer.MIN_VALUE);
                         case LONG -> this.canShiftLeft(shift, value, Long.MIN_VALUE);
                     };
-                    if(!canShift && type == 1)
-                        type--;
+                    if(!canShift && type == 1) type--;
 
-                    // Number obfuscation types
                     switch (type) {
                         case 0 -> { // XOR
                             int xor1 = random.nextInt(Short.MAX_VALUE);
@@ -100,8 +100,7 @@ public class ConstantTransformer extends ClassTransformer {
                         final LabelNode label0 = new LabelNode(), label1 = new LabelNode(), label2 = new LabelNode(), label3 = new LabelNode();
                         int index = methodNode.maxLocals + 2;
                         long rand0 = random.nextLong(), rand1 = random.nextLong();
-                        while (rand0 == rand1)
-                            rand1 = random.nextLong();
+                        while (rand0 == rand1) rand1 = random.nextLong();
 
                         flow.add(ASMUtils.pushLong(rand0));
                         flow.add(ASMUtils.pushLong(rand1));
@@ -136,26 +135,6 @@ public class ConstantTransformer extends ClassTransformer {
                         methodNode.instructions.insertBefore(insn, flow);
                         methodNode.instructions.insert(insn, afterFlow);
                     }
-
-                    // Replace number instruction with our instructions
-                    methodNode.instructions.insert(insn, insnList);
-                    methodNode.instructions.remove(insn);
-                });
-
-        // Replace numbers between 0 - Byte.MAX_VALUE with
-        // "".length()
-        Arrays.stream(methodNode.instructions.toArray())
-                .filter(ASMUtils::isPushInt)
-                .filter(insn -> {
-                    int val = ASMUtils.getPushedInt(insn);
-                    return val >= 0 && val <= Byte.MAX_VALUE;
-                })
-                .forEach(insn -> {
-                    final InsnList insnList = new InsnList();
-                    int value = ASMUtils.getPushedInt(insn);
-
-                    insnList.add(new LdcInsnNode("\0".repeat(value)));
-                    insnList.add(new MethodInsnNode(INVOKEVIRTUAL, "java/lang/String", "length", "()I", false));
                     methodNode.instructions.insert(insn, insnList);
                     methodNode.instructions.remove(insn);
                 });
@@ -163,23 +142,31 @@ public class ConstantTransformer extends ClassTransformer {
 
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
-        // Look for string literals
+        if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
+            this.getByteObf().log("Skipping constant obfuscation for already large method: %s.%s", classNode.name, methodNode.name);
+            return;
+        }
+
         Arrays.stream(methodNode.instructions.toArray())
                 .filter(insn -> insn instanceof LdcInsnNode && ((LdcInsnNode)insn).cst instanceof String)
                 .map(insn -> (LdcInsnNode)insn)
                 .forEach(ldc -> {
-                    // Replace string literal with our instructions
-                    methodNode.instructions.insertBefore(ldc, this.convertString(methodNode, (String) ldc.cst));
+                    String s = (String) ldc.cst;
+                    // **FIX**: Add guard clauses to prevent processing huge strings or injecting too much code.
+                    if (s.length() > MAX_STRING_LENGTH_TO_OBFUSCATE || s.isEmpty()) {
+                        return;
+                    }
+                    if (random.nextDouble() > INJECTION_RATE) return;
+
+                    methodNode.instructions.insertBefore(ldc, this.convertString(methodNode, s));
                     methodNode.instructions.remove(ldc);
                 });
 
-        // Number obfuscation
         this.obfuscateNumbers(classNode, methodNode);
     }
 
     @Override
     public void transformField(ClassNode classNode, FieldNode fieldNode) {
-        // Move field strings to initializer methods so we can obfuscate
         if(fieldNode.value instanceof String)
             if((fieldNode.access & ACC_STATIC) != 0)
                 this.addDirectInstructions(classNode, ASMUtils.findOrCreateClinit(classNode), fieldNode);
@@ -190,41 +177,31 @@ public class ConstantTransformer extends ClassTransformer {
     private void addDirectInstructions(ClassNode classNode, MethodNode methodNode, FieldNode fieldNode) {
         final InsnList insnList = new InsnList();
         insnList.add(new LdcInsnNode(fieldNode.value));
-        int opcode;
-        if((fieldNode.access & ACC_STATIC) != 0)
-            opcode = PUTSTATIC;
-        else
-            opcode = PUTFIELD;
+        int opcode = (fieldNode.access & ACC_STATIC) != 0 ? PUTSTATIC : PUTFIELD;
         insnList.add(new FieldInsnNode(opcode, classNode.name, fieldNode.name, fieldNode.desc));
         methodNode.instructions.insert(insnList);
-
         fieldNode.value = null;
     }
 
     private InsnList convertString(MethodNode methodNode, String str) {
         final InsnList insnList = new InsnList();
         final int varIndex = methodNode.maxLocals + 1;
-
         insnList.add(ASMUtils.pushInt(str.length()));
         insnList.add(new IntInsnNode(NEWARRAY, T_BYTE));
         insnList.add(new VarInsnNode(ASTORE, varIndex));
-
         ArrayList<Integer> indexes = new ArrayList<>();
         for(int i = 0; i < str.length(); i++) indexes.add(i);
         Collections.shuffle(indexes);
 
         for(int i = 0; i < str.length(); i++) {
-            int index = indexes.get(0);
-            indexes.remove(0);
+            int index = indexes.remove(0);
             char ch = str.toCharArray()[index];
-
             if(i == 0) {
                 insnList.add(new VarInsnNode(ALOAD, varIndex));
                 insnList.add(ASMUtils.pushInt(index));
                 insnList.add(ASMUtils.pushInt((byte)random.nextInt(Character.MAX_VALUE)));
                 insnList.add(new InsnNode(BASTORE));
             }
-
             insnList.add(new VarInsnNode(ALOAD, varIndex));
             insnList.add(ASMUtils.pushInt(index));
             insnList.add(ASMUtils.pushInt(ch));
@@ -243,13 +220,11 @@ public class ConstantTransformer extends ClassTransformer {
         return IntStream.range(0, shift).allMatch(i -> (value >> power - i) == 0);
     }
 
-    private enum ValueType {
-        INTEGER, LONG
-    }
+    private enum ValueType { INTEGER, LONG }
 
     private ValueType getValueType(AbstractInsnNode insn) {
         if(ASMUtils.isPushInt(insn)) return ValueType.INTEGER;
-        else if(ASMUtils.isPushLong(insn)) return ValueType.LONG;
+        if(ASMUtils.isPushLong(insn)) return ValueType.LONG;
         throw new IllegalArgumentException("Insn is not a push int/long instruction");
     }
 

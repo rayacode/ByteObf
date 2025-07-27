@@ -1,6 +1,6 @@
 /*  ByteObf: A Java Bytecode Obfuscator
  *  Copyright (C) 2021 vimasig
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,27 @@ import java.util.Map;
 public class ASMUtils implements Opcodes {
 
     private ASMUtils() { }
+
+    // **NEW**: Thresholds to identify overly complex classes that should be skipped by heavy transformers.
+    public static final int CLASS_METHOD_COUNT_THRESHOLD = 400;
+    public static final int CLASS_INSTRUCTION_COUNT_THRESHOLD = 100_000;
+
+    /**
+     * **NEW**: Checks if a class is too large or complex for heavy transformations.
+     * This is the main proactive guard against ClassTooLargeException.
+     * @param classNode The class to check.
+     * @return True if the class exceeds complexity thresholds, false otherwise.
+     */
+    public static boolean isClassTooComplex(ClassNode classNode) {
+        if (classNode.methods.size() > CLASS_METHOD_COUNT_THRESHOLD) {
+            return true;
+        }
+        long totalInstructions = classNode.methods.stream()
+                .filter(m -> m.instructions != null)
+                .mapToLong(m -> m.instructions.size())
+                .sum();
+        return totalInstructions > CLASS_INSTRUCTION_COUNT_THRESHOLD;
+    }
 
     public static class BuiltInstructions {
         public static InsnList getPrintln(String s) {

@@ -1,6 +1,6 @@
 /*  ByteObf: A Java Bytecode Obfuscator
  *  Copyright (C) 2021 vimasig
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,7 +39,11 @@ public class DummyClassTransformer extends ClassTransformer {
     @Override
     public void transformOutput(JarOutputStream jarOutputStream) {
         ClassNode dummy = new ClassNode();
-        dummy.visit(Opcodes.V1_5, Opcodes.ACC_PUBLIC, this.getByteObf().getConfig().getOptions().getWatermarkOptions().getDummyClassText(), null, "java/lang/Object", null);
+        // Sanitize the class name to be a valid path.
+        String sanitizedClassName = this.getByteObf().getConfig().getOptions().getWatermarkOptions().getDummyClassText()
+                .replaceAll("[^a-zA-Z0-9/_-]", "_");
+
+        dummy.visit(Opcodes.V1_5, Opcodes.ACC_PUBLIC, sanitizedClassName, null, "java/lang/Object", null);
         dummy.visitMethod(random.nextInt(100), "\u0001", "(\u0001/)L\u0001/;", null, null);
         try {
             jarOutputStream.putNextEntry(new JarEntry(dummy.name + ".class"));
@@ -51,6 +55,6 @@ public class DummyClassTransformer extends ClassTransformer {
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getWatermarkOptions().isDummyClass(), ".OBFUSCATED WITH BYTEOBF");
+        return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getWatermarkOptions().isDummyClass(), ".OBFUSCATED WITH ByteObf");
     }
 }

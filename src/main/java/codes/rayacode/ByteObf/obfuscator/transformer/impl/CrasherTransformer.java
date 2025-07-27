@@ -1,6 +1,6 @@
 /*  ByteObf: A Java Bytecode Obfuscator
  *  Copyright (C) 2021 vimasig
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,7 +56,8 @@ public class CrasherTransformer extends ClassTransformer {
         ClassNode invalid = new ClassNode();
         invalid.visit(Opcodes.V1_5, Opcodes.ACC_PUBLIC, PACKAGE_NAME + REPEAT_BASE.repeat((Character.MAX_VALUE / REPEAT_BASE.length()) - PACKAGE_NAME.length()), null, "java/lang/Object", null);
         try {
-            jarOutputStream.putNextEntry(new JarEntry("\u0020".repeat(4) + ".class"));
+            // Using a simple but still unusual name that is valid.
+            jarOutputStream.putNextEntry(new JarEntry("_.class"));
             jarOutputStream.write(ASMUtils.toByteArrayDefault(invalid));
         } catch (IOException e) {
             e.printStackTrace();

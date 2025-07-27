@@ -1,5 +1,5 @@
 /*  ByteObf: A Java Bytecode Obfuscator
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ plugins {
 }
 
 group = 'codes.rayacode.ByteObf'
-version = '2.0.1'
+version = '2.0.1-stable'
 
 
 repositories {
@@ -40,6 +40,15 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
+tasks.withType(JavaExec).configureEach {
+    jvmArgs = [
+            '-Xgcpolicy:gencon',
+            '-Xmn512m',
+            '-Xms1g',
+            '-Xmx12g',
+            '-Xverbosegclog:build/logs/gc.log'
+    ]
+}
 application {
     mainClass = 'codes.rayacode.ByteObf.ui.Launcher'
 }

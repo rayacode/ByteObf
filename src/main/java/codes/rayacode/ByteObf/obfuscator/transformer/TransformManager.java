@@ -1,6 +1,6 @@
 /*  ByteObf: A Java Bytecode Obfuscator
  *  Copyright (C) 2021 vimasig
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@ import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.SimpleRemapper;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -47,13 +48,13 @@ public class TransformManager {
     public TransformManager(ByteObf byteObf) {
         this.byteObf = byteObf;
         this.classTransformers.addAll(getTransformers().stream()
-            .map(clazz -> {
-                try {
-                    return clazz.getConstructor(ByteObf.class).newInstance(this.byteObf);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }).collect(Collectors.toList()));
+                .map(clazz -> {
+                    try {
+                        return clazz.getConstructor(ByteObf.class).newInstance(this.byteObf);
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }).collect(Collectors.toList()));
     }
 
     public static List<Class<? extends ClassTransformer>> getTransformers() {
@@ -63,7 +64,6 @@ public class TransformManager {
         transformers.add(FieldRenamerTransformer.class);
         transformers.add(MethodRenamerTransformer.class);
 
-        // TODO: AntiDebugTransformer
         transformers.add(LightControlFlowTransformer.class);
         transformers.add(HeavyControlFlowTransformer.class);
         transformers.add(ConstantTransformer.class);
@@ -124,13 +124,13 @@ public class TransformManager {
 
         // Transform all classes
         this.classTransformers.stream()
-            .filter(ClassTransformer::isEnabled)
-            .filter(ct -> !(ct instanceof RenamerTransformer))
-            .forEach(ct -> {
-                this.byteObf.log("Applying %s", ct.getName());
-                this.byteObf.getClasses().forEach(classNode -> this.transform(classNode, ct.getClass()));
-                this.byteObf.getResources().forEach(ct::transformResource);
-        });
+                .filter(ClassTransformer::isEnabled)
+                .filter(ct -> !(ct instanceof RenamerTransformer))
+                .forEach(ct -> {
+                    this.byteObf.log("Applying %s", ct.getName());
+                    this.byteObf.getClasses().forEach(classNode -> this.transform(classNode, ct.getClass()));
+                    this.byteObf.getResources().forEach(ct::transformResource);
+                });
 
         // Post
         this.classTransformers.stream()
@@ -140,24 +140,35 @@ public class TransformManager {
 
     public void transform(ClassNode classNode, Class<? extends ClassTransformer> transformerClass) {
         ClassTransformer classTransformer = this.getClassTransformer(transformerClass);
-        if(this.byteObf.isExcluded(classTransformer, ASMUtils.getName(classNode))) return;
+        if(this.byteObf.isExcluded(classTransformer, classNode.name)) return;
+
+        // **DEFINITIVE FIX**: Proactively skip heavy transformations on overly complex classes.
+        if (classTransformer instanceof ConstantTransformer ||
+                classTransformer instanceof LightControlFlowTransformer ||
+                classTransformer instanceof HeavyControlFlowTransformer) {
+            if (ASMUtils.isClassTooComplex(classNode)) {
+                this.byteObf.log("Skipping transformer '%s' for overly complex class: %s", classTransformer.getName(), classNode.name);
+                return;
+            }
+        }
 
         classTransformer.transformClass(classNode);
         classNode.fields.stream()
                 .filter(fieldNode -> !this.byteObf.isExcluded(classTransformer, ASMUtils.getName(classNode, fieldNode)))
                 .forEach(fieldNode -> classTransformer.transformField(classNode, fieldNode));
         classNode.methods.stream()
-                .filter(methodNode -> !this.byteObf.isExcluded(classTransformer, ASMUtils.getName(classNode) + "." + methodNode.name + "()"))
+                .filter(methodNode -> !this.byteObf.isExcluded(classTransformer, ASMUtils.getName(classNode, methodNode)))
                 .forEach(methodNode -> {
-            AbstractInsnNode[] insns = methodNode.instructions.toArray().clone();
-            classTransformer.transformMethod(classNode, methodNode);
+                    // Clone original instructions to allow reversion
+                    AbstractInsnNode[] insns = methodNode.instructions.toArray().clone();
+                    classTransformer.transformMethod(classNode, methodNode);
 
-            // Revert changes if method size is invalid
-            if (!ASMUtils.isMethodSizeValid(methodNode)) {
-                this.byteObf.log("Cannot apply \"%s\" on \"%s\" due to low method capacity", classTransformer.getName(), classNode.name + "." + methodNode.name + methodNode.desc);
-                methodNode.instructions = ASMUtils.arrayToList(insns);
-            }
-        });
+                    // Revert changes if method size is invalid AFTER transformation (Reactive guard)
+                    if (!ASMUtils.isMethodSizeValid(methodNode)) {
+                        this.byteObf.err("Reverting changes from \"%s\" on \"%s\" due to excessive method size after transform.", classTransformer.getName(), classNode.name + "." + methodNode.name + methodNode.desc);
+                        methodNode.instructions = ASMUtils.arrayToList(insns);
+                    }
+                });
     }
 
     @SuppressWarnings("unchecked") // Checked using stream

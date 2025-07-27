@@ -1,6 +1,6 @@
 /*  ByteObf: A Java Bytecode Obfuscator
  *  Copyright (C) 2021 vimasig
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,9 @@ import org.apache.commons.cli.*;
 
 import javax.swing.*;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 
 public class App extends Application {
 
@@ -52,6 +54,7 @@ public class App extends Application {
                     controller.configManager.loadConfig(new File(cmd.getOptionValue("config")));
                 } catch (IOException e) {
                     e.printStackTrace();
+                    logException(e);
                     System.err.println("Cannot load config.");
                 }
             if(cmd.hasOption("input"))
@@ -66,6 +69,7 @@ public class App extends Application {
                     latestVer = ByteObfUtils.getLatestVersion();
                 } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
+                    logException(e);
                 }
             } else latestVer = ByteObfUtils.getVersion();
 
@@ -73,14 +77,20 @@ public class App extends Application {
             if(cmd.hasOption("console")) {
                 if(!cmd.hasOption("noupdate")) {
                     if(latestVer == null)
-                        controller.log(ByteObfMessage.CANNOT_CHECK_UPDATE.toString());
+                        System.out.println("[BYTEOBFGUI] " + ByteObfMessage.CANNOT_CHECK_UPDATE.toString());
                     else if(!ByteObfUtils.getVersion().equals(latestVer))
-                        controller.log(ByteObfMessage.NEW_UPDATE_AVAILABLE + latestVer);
+                        System.out.println("[BYTEOBFGUI] " + ByteObfMessage.NEW_UPDATE_AVAILABLE + latestVer);
                 }
 
                 ByteObfConfig config = controller.configManager.generateConfig();
-                ByteObf byteObf = new ByteObf(config);
-                byteObf.run();
+                // **FIX**: Provide the correct consumers for console mode logging.
+                ByteObf byteObf = new ByteObf(config, System.out::println, System.err::println);
+                try {
+                    byteObf.call(); // Use call() now that it's a Task
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    logException(e);
+                }
                 System.exit(0);
             }
 
@@ -99,8 +109,19 @@ public class App extends Application {
             stage.show();
         } catch (ParseException e) {
             e.printStackTrace();
+            logException(e);
             System.err.println("Cannot parse command line.");
             System.exit(0);
+        }
+    }
+
+
+    private void logException(Exception e) {
+        try (FileWriter fw = new FileWriter("D:\\projects\\java\\javafx\\ByteObf\\loginfo.txt", true);
+             PrintWriter pw = new PrintWriter(fw)) {
+            e.printStackTrace(pw);
+        } catch (IOException io) {
+            io.printStackTrace();
         }
     }
 

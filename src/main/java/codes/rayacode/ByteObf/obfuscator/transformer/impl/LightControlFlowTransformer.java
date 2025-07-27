@@ -1,6 +1,6 @@
 /*  ByteObf: A Java Bytecode Obfuscator
  *  Copyright (C) 2021 vimasig
- *  Copyright (C) [2025] Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
+ *  Copyright (C) 2025 Mohammad Ali Solhjoo mohammadalisolhjoo@live.com
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,6 +31,8 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class LightControlFlowTransformer extends ControlFlowTransformer {
 
+    private static final int METHOD_SIZE_THRESHOLD = 30000;
+
     public LightControlFlowTransformer(ByteObf byteObf) {
         super(byteObf, "Control Flow obfuscation", ByteObfCategory.ADVANCED);
     }
@@ -51,6 +53,11 @@ public class LightControlFlowTransformer extends ControlFlowTransformer {
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
         if(!ASMUtils.isMethodEligibleToModify(classNode, methodNode)) return;
+
+        if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
+            this.getByteObf().log("Skipping light control flow for already large method: %s.%s", classNode.name, methodNode.name);
+            return;
+        }
 
         // Main obfuscation
         Arrays.stream(methodNode.instructions.toArray())
