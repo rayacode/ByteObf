@@ -70,7 +70,9 @@ License
     ByteObf is licensed under the terms of the GNU General Public License v3.0.
 
     Acknowledgements and Original License
-    This project, ByteObf, is a derivative work of the Bozar project, which was originally created by vimasig and licensed under the MIT license. The original copyright notice for the Bozar project is preserved below as required by its license.
+    This project, ByteObf, is a derivative work of the Bozar project, which was originally created by 
+    vimasig and licensed under the MIT license. The original copyright notice for the Bozar project is 
+    preserved below as required by its license.
 
  
 
