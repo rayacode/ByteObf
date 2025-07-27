@@ -2,7 +2,7 @@
 
 **A modern, robust, and easy-to-use Java bytecode obfuscator with a graphical user interface.**
 
-This project, **ByteObf**, is an independent fork of the original [Bozar obfuscator by vimasig](https://github.com/vimasig/Bozar). It has been modernized to run on the latest Java versions (21+) and its core engine has been hardened to reliably handle complex, real-world applications and "fat JARs" without crashing.
+This project, **ByteObf**, is an independent fork of the original [Bozar obfuscator by vimasig](https://github.com/vimasig/Bozar). It has been modernized to run on the latest Java versions (23) and its core engine has been hardened to reliably handle complex, real-world applications and "fat JARs" without crashing.
 
 The goal of ByteObf is to provide a stable, open-source tool for protecting Java applications through effective obfuscation techniques, making reverse-engineering more difficult.
 
