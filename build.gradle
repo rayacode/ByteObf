@@ -24,44 +24,35 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
-
-group = 'io.github.vimasig'
-version = '1.7.0'
-
-
+group = 'codes.rayacode' // Changed to your new group
+version = '2.0.1' // Updated version
 
 repositories {
     mavenCentral()
 }
 
-
 java {
-
     toolchain {
         languageVersion = JavaLanguageVersion.of(23)
     }
 }
 
-tasks.withType(JavaCompile) {
+// FIX: Switched to configureEach for better performance and to resolve the warning.
+tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
-
 
 application {
     mainClass = 'codes.rayacode.ByteObf.ui.Launcher'
     applicationDefaultJvmArgs = ['--add-modules', 'javafx.controls,javafx.fxml']
-
 }
 
 javafx {
     version = "23"
-    modules = [ 'javafx.controls', 'javafx.fxml' ] // Specify required JavaFX modules. [1, 16]
+    modules = [ 'javafx.controls', 'javafx.fxml' ]
 }
 
-
-
 dependencies {
-
     // ASM
     implementation 'org.ow2.asm:asm:9.8'
     implementation 'org.ow2.asm:asm-tree:9.8'
@@ -74,7 +65,6 @@ dependencies {
     implementation 'commons-cli:commons-cli:1.9.0'
 }
 
-
 processResources {
     expand(project.properties)
 }
@@ -85,13 +75,9 @@ jar {
     }
 }
 
-
 shadowJar {
-
     manifest.inheritFrom project.tasks.jar.manifest
-
     archiveClassifier = 'all'
 }
-
 
 build.dependsOn(shadowJar)

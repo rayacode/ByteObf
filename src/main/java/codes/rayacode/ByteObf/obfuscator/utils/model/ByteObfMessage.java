@@ -25,7 +25,7 @@ import javax.swing.*;
 public enum ByteObfMessage {
 
     TITLE("ByteObf Java Bytecode Obfuscator"),
-    VERSION_TEXT(TITLE.toString() + " v" + ByteObfUtils.getVersion()),
+    VERSION_TEXT(TITLE + " v" + ByteObfUtils.getVersion()),
 
     // Update checker messages
     NEW_UPDATE_AVAILABLE("New update is available: v"),
