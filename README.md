@@ -72,7 +72,9 @@ License
     Acknowledgements and Original License
     This project, ByteObf, is a derivative work of the Bozar project, which was originally created by vimasig and licensed under the MIT license. The original copyright notice for the Bozar project is preserved below as required by its license.
 
-    MIT License
+ 
+
+MIT License
 
 Copyright (c) 2021 vimasig
 
