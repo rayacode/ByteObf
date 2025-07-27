@@ -62,13 +62,17 @@ Command	Description
 -config	Path to a configuration file byteobfconfig.json
 -noupdate	Disables the startup update check.
 -console	Runs the application without a GUI and starts the obfuscation task immediately.
+
+
+
 License
-ByteObf is licensed under the terms of the GNU General Public License v3.0.
 
-Acknowledgements and Original License
-This project, ByteObf, is a derivative work of the Bozar project, which was originally created by vimasig and licensed under the MIT license. The original copyright notice for the Bozar project is preserved below as required by its license.
+    ByteObf is licensed under the terms of the GNU General Public License v3.0.
 
-MIT License
+    Acknowledgements and Original License
+    This project, ByteObf, is a derivative work of the Bozar project, which was originally created by vimasig and licensed under the MIT license. The original copyright notice for the Bozar project is preserved below as required by its license.
+
+    MIT License
 
 Copyright (c) 2021 vimasig
 
