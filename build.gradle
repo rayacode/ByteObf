@@ -1,88 +1,80 @@
-/*
- * This build.gradle file has been updated to remove the Java Module System
- * and build a standard, non-modular executable JAR.
- */
+
 
 plugins {
     id 'java'
-    id 'application' // Simplifies running the application and configuring the main class.
-    id 'org.openjfx.javafxplugin' version '0.1.0' // Manages JavaFX dependencies and integration. [1]
-    id 'com.github.johnrengelman.shadow' version '8.1.1' // Creates a "fat" JAR. [15, 21]
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
-// Basic project information
+
 group = 'io.github.vimasig'
 version = '1.7.0'
-sourceCompatibility = '21' // Set source compatibility to Java 21
 
-// Set the repository for dependencies
+
+
 repositories {
     mavenCentral()
 }
 
-// Configure Java compilation options
+
 java {
-    // Use a Java 21 toolchain to ensure a compatible JDK is used for compiling.
-    // The resulting bytecode will run on Java 21, 22, 23, and newer. [26, 29]
+
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(23)
     }
 }
 
-// Set compile-time encoding to UTF-8
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
-// Configure the main class for the application
+
 application {
-    // UPDATED: The main class is now the Launcher, which provides a standard main() method.
     mainClass = 'io.github.vimasig.bozar.ui.Launcher'
+    applicationDefaultJvmArgs = ['--add-modules', 'javafx.controls,javafx.fxml']
+
 }
 
-// Configure the JavaFX plugin
 javafx {
-    version = "21"
+    version = "23"
     modules = [ 'javafx.controls', 'javafx.fxml' ] // Specify required JavaFX modules. [1, 16]
 }
 
-// Define project dependencies
-// The ASM 9.7 library supports bytecode from Java 1.5 to 23, meeting your requirement.
+
+
 dependencies {
-    // JavaFX dependencies are managed by the JavaFX plugin.
 
     // ASM
-    implementation 'org.ow2.asm:asm:9.7'
-    implementation 'org.ow2.asm:asm-tree:9.7'
-    implementation 'org.ow2.asm:asm-commons:9.7'
-    implementation 'org.ow2.asm:asm-util:9.7'
+    implementation 'org.ow2.asm:asm:9.8'
+    implementation 'org.ow2.asm:asm-tree:9.8'
+    implementation 'org.ow2.asm:asm-commons:9.8'
+    implementation 'org.ow2.asm:asm-util:9.8'
 
     // Gson
-    implementation 'com.google.code.gson:gson:2.8.6'
-
+    implementation 'com.google.code.gson:gson:2.13.1'
     // commons-cli
-    implementation 'commons-cli:commons-cli:1.4'
+    implementation 'commons-cli:commons-cli:1.9.0'
 }
 
-// Process resources and enable property expansion (filtering)
+
 processResources {
     expand(project.properties)
 }
 
-// Configure the final JAR's manifest
 jar {
     manifest {
         attributes('Implementation-Version': project.version)
     }
 }
 
-// Configure the shadowJar task to create the "fat" JAR
+
 shadowJar {
-    // Inherit manifest entries from the standard 'jar' task.
+
     manifest.inheritFrom project.tasks.jar.manifest
-    // Sets a classifier for the generated fat jar, e.g., 'Bozar-1.7.0-all.jar'.
+
     archiveClassifier = 'all'
 }
 
-// Ensure the 'build' task also creates the fat jar
+
 build.dependsOn(shadowJar)

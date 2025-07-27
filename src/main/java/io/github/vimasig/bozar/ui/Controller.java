@@ -115,51 +115,51 @@ public class Controller {
                     .filter(ct -> !isPresent(vBox, ct))
                     .filter(ct -> ct.getCategory() == category)
                     .forEach(ct -> {
-                try {
-                    BozarConfig.EnableType enableType = ct.getEnableType();
-                    Object type = enableType.type();
+                        try {
+                            BozarConfig.EnableType enableType = ct.getEnableType();
+                            Object type = enableType.type();
 
-                    // Convert singleton list to object
-                    if(type.getClass().isEnum())
-                        type = new ArrayList<>(List.of((Enum<?>)type));
+                            // Convert singleton list to object
+                            if(type.getClass().isEnum())
+                                type = new ArrayList<>(List.of((Enum<?>)type));
 
-                    // Actions
-                    if(List.class.isAssignableFrom(type.getClass())) {
-                        // Enum list => ComboBox
-                        HBox hBox = getHBox(vBox);
-                        hBox.getChildren().add(new Label(ct.getText()));
+                            // Actions
+                            if(List.class.isAssignableFrom(type.getClass())) {
+                                // Enum list => ComboBox
+                                HBox hBox = getHBox(vBox);
+                                hBox.getChildren().add(new Label(ct.getText()));
 
-                        var comboBox = new ComboBox<>(FXCollections.observableList(new ArrayList<String>()));
-                        mapComboBox(comboBox, ((Enum<?>) ((List<?>) type).get(0)).getDeclaringClass());
-                        comboBox.setPrefWidth(150);
-                        hBox.getChildren().add(comboBox);
-                    } else if(type.getClass() == String.class) {
-                        // String => TextField, TextArea
-                        HBox hBox = getHBox(vBox);
-                        var checkBox = new CheckBox(ct.getText());
-                        hBox.getChildren().add(checkBox);
+                                var comboBox = new ComboBox<>(FXCollections.observableList(new ArrayList<String>()));
+                                mapComboBox(comboBox, ((Enum<?>) ((List<?>) type).get(0)).getDeclaringClass());
+                                comboBox.setPrefWidth(150);
+                                hBox.getChildren().add(comboBox);
+                            } else if(type.getClass() == String.class) {
+                                // String => TextField, TextArea
+                                HBox hBox = getHBox(vBox);
+                                var checkBox = new CheckBox(ct.getText());
+                                hBox.getChildren().add(checkBox);
 
-                        TextInputControl tic;
-                        if(((String)type).contains("\n")) {
-                            // TextArea if it contains new line
-                            tic = new TextArea();
-                            tic.setPrefWidth(200);
-                            tic.setPrefHeight(200);
-                            VBox.setVgrow(hBox, Priority.ALWAYS);
-                        } else tic = new TextField();
+                                TextInputControl tic;
+                                if(((String)type).contains("\n")) {
+                                    // TextArea if it contains new line
+                                    tic = new TextArea();
+                                    tic.setPrefWidth(200);
+                                    tic.setPrefHeight(200);
+                                    VBox.setVgrow(hBox, Priority.ALWAYS);
+                                } else tic = new TextField();
 
-                        HBox.setHgrow(tic, Priority.ALWAYS);
-                        tic.setText((String)enableType.type());
-                        hBox.getChildren().add(tic);
-                    } else if(type == boolean.class) {
-                        // Boolean => CheckBox
-                        var checkBox = new CheckBox(ct.getText());
-                        vBox.getChildren().add(checkBox);
-                    } else throw new IllegalArgumentException();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
+                                HBox.setHgrow(tic, Priority.ALWAYS);
+                                tic.setText((String)enableType.type());
+                                hBox.getChildren().add(tic);
+                            } else if(type == boolean.class) {
+                                // Boolean => CheckBox
+                                var checkBox = new CheckBox(ct.getText());
+                                vBox.getChildren().add(checkBox);
+                            } else throw new IllegalArgumentException();
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    });
 
             // Description
             Region region = new Region();
@@ -219,12 +219,12 @@ public class Controller {
                             .map(s -> s.substring(1)) // remove star
                             .allMatch(s -> f.getName().endsWith(s)))
                     .map(f -> {
-                try {
-                    return f.getCanonicalPath();
-                } catch (IOException e) {
-                    throw new RuntimeException(String.format("Cannot get canonical path of file %s", f.getName()), e);
-                }
-            }).collect(Collectors.toList()));
+                        try {
+                            return f.getCanonicalPath();
+                        } catch (IOException e) {
+                            throw new RuntimeException(String.format("Cannot get canonical path of file %s", f.getName()), e);
+                        }
+                    }).collect(Collectors.toList()));
         });
         buttonRemoveLib.setOnAction(actionEvent -> {
             int index = libraries.getSelectionModel().getSelectedIndex();
@@ -249,13 +249,13 @@ public class Controller {
                 .filter(node -> node instanceof HBox)
                 .map(node -> (HBox)node)
                 .anyMatch(hBox -> hBox.getChildren().stream()
-                                .filter(node -> node instanceof Label || node instanceof CheckBox)
-                                .map(node -> {
-                                    if(node instanceof Label) return ((Label)node).getText();
-                                    else return ((CheckBox)node).getText();
-                                })
-                                .findFirst()
-                                .orElseThrow(NullPointerException::new)
+                        .filter(node -> node instanceof Label || node instanceof CheckBox)
+                        .map(node -> {
+                            if(node instanceof Label) return ((Label)node).getText();
+                            else return ((CheckBox)node).getText();
+                        })
+                        .findFirst()
+                        .orElseThrow(NullPointerException::new)
                         .equals(ct.getText())
                 );
     }
@@ -268,6 +268,7 @@ public class Controller {
         return hBox;
     }
 
+    @SuppressWarnings("unchecked")
     TextInputControl getTextInputControl(Class<? extends ClassTransformer> transformerClass) {
         final var transformer = Objects.requireNonNull(TransformManager.createTransformerInstance(transformerClass));
         return this.getTabFromCategory(transformer.getCategory()).getChildren().stream()
@@ -278,15 +279,16 @@ public class Controller {
                     else return ((CheckBox)node).getText();
                 }).anyMatch(s -> s.equals(transformer.getText())))
                 .map(hBox -> hBox.getChildren().stream()
-                                .filter(node -> node instanceof TextInputControl)
-                                .map(node -> ((TextInputControl)node))
-                                .findFirst()
-                                .orElseThrow(NullPointerException::new)
+                        .filter(node -> node instanceof TextInputControl)
+                        .map(node -> ((TextInputControl)node))
+                        .findFirst()
+                        .orElseThrow(NullPointerException::new)
                 )
                 .findFirst()
                 .orElse(null);
     }
 
+    @SuppressWarnings("unchecked")
     CheckBox getCheckBox(Class<? extends ClassTransformer> transformerClass) {
         final var transformer = Objects.requireNonNull(TransformManager.createTransformerInstance(transformerClass));
         return this.getTabFromCategory(transformer.getCategory()).getChildren().stream()
@@ -303,6 +305,7 @@ public class Controller {
                 .orElseThrow(NullPointerException::new);
     }
 
+    @SuppressWarnings("unchecked")
     ComboBox<String> getComboBox(Class<? extends ClassTransformer> transformerClass) {
         ClassTransformer transformer = Objects.requireNonNull(TransformManager.createTransformerInstance(transformerClass));
         return this.getTabFromCategory(transformer.getCategory()).getChildren().stream()
@@ -330,9 +333,9 @@ public class Controller {
                 .filter(Objects::nonNull)
                 .filter(ct -> ct.getName().equals(transformerName))
                 .map(ct -> {
-                    Object obj = ct.getEnableType().type();
-                    if(List.class.isAssignableFrom(obj.getClass())) obj = ((List<?>)obj).get(0);
-                    return EnumSet.allOf(((Enum<?>)obj).getDeclaringClass()).stream()
+                            Object obj = ct.getEnableType().type();
+                            if(List.class.isAssignableFrom(obj.getClass())) obj = ((List<?>)obj).get(0);
+                            return EnumSet.allOf(((Enum<?>)obj).getDeclaringClass()).stream()
                                     .filter(anEnum -> Objects.requireNonNull(BozarUtils.getSerializedName(anEnum)).equals(enumName))
                                     .findFirst()
                                     .orElse(null);
