@@ -33,7 +33,6 @@ import java.util.stream.IntStream;
 public class ConstantTransformer extends ClassTransformer {
 
     private static final int METHOD_SIZE_THRESHOLD = 30000;
-    
     private static final int MAX_STRING_LENGTH_TO_OBFUSCATE = 128;
     private static final double INJECTION_RATE = 0.30;
 
@@ -143,7 +142,7 @@ public class ConstantTransformer extends ClassTransformer {
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
         if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
-            this.getByteObf().log("Skipping constant obfuscation for already large method: %s.%s", classNode.name, methodNode.name);
+            this.getByteObf().log(ByteObf.LogLevel.WARN, "Skipping ConstantTransformer for method %s.%s due to size exceeding threshold %d", classNode.name, methodNode.name, METHOD_SIZE_THRESHOLD);
             return;
         }
 
@@ -152,8 +151,9 @@ public class ConstantTransformer extends ClassTransformer {
                 .map(insn -> (LdcInsnNode)insn)
                 .forEach(ldc -> {
                     String s = (String) ldc.cst;
-                    
                     if (s.length() > MAX_STRING_LENGTH_TO_OBFUSCATE || s.isEmpty()) {
+                        
+                        this.getByteObf().log(ByteObf.LogLevel.DEBUG, "Skipping string obfuscation for method %s.%s due to string length %d exceeding threshold %d or being empty.", classNode.name, methodNode.name, s.length(), MAX_STRING_LENGTH_TO_OBFUSCATE);
                         return;
                     }
                     if (random.nextDouble() > INJECTION_RATE) return;

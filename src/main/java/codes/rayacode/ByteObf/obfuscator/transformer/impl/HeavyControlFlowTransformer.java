@@ -54,7 +54,7 @@ public class HeavyControlFlowTransformer extends ControlFlowTransformer {
 
         
         if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
-            this.getByteObf().log("Skipping heavy control flow for already large method: %s.%s", classNode.name, methodNode.name);
+            this.getByteObf().log(ByteObf.LogLevel.WARN, "Skipping HeavyControlFlowTransformer for method %s.%s due to size exceeding threshold %d", classNode.name, methodNode.name, METHOD_SIZE_THRESHOLD);
             return;
         }
 

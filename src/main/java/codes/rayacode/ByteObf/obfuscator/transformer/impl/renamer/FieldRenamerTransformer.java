@@ -39,12 +39,6 @@ public class FieldRenamerTransformer extends RenamerTransformer {
     public void pre() {
         
         
-        if (classMap.isEmpty()) {
-            this.getByteObf().log("Building class map for fast renamer lookups...");
-            classMap.putAll(this.getByteObf().getClasses().stream()
-                    .collect(Collectors.toConcurrentMap(cn -> cn.name, Function.identity(), (a, b) -> a)));
-            this.getByteObf().log("Class map built.");
-        }
     }
 
     @Override

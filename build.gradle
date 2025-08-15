@@ -45,8 +45,8 @@ tasks.withType(JavaExec).configureEach {
             '-Xgcpolicy:gencon',
             '-Xmn512m',
             '-Xms1g',
-            '-Xmx12g',
-            '-Xverbosegclog:build/logs/gc.log'
+            '-Xmx12g'
+            //'-Xverbosegclog:build/logs/gc.log'
     ]
 }
 application {

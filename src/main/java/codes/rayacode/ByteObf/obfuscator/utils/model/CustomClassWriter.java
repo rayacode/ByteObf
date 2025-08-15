@@ -24,27 +24,63 @@ import org.objectweb.asm.ClassWriter;
 
 import java.util.Map;
 
+
+
 public class CustomClassWriter extends ClassWriter {
 
     private final ByteObf byteObf;
-    private final ClassLoader classLoader;
     public CustomClassWriter(ByteObf byteObf, int flags, ClassLoader classLoader) {
         super(flags);
         this.byteObf = byteObf;
-        this.classLoader = classLoader;
     }
 
     @Override
     protected String getCommonSuperClass(String type1, String type2) {
         try {
             return super.getCommonSuperClass(type1, type2);
-        } catch (TypeNotPresentException e) {
-            return super.getCommonSuperClass(this.findTypeOrDefault(type1), this.findTypeOrDefault(type2));
+        } catch (Throwable e) { 
+            String missingType = null;
+            Throwable cause = e;
+            while (cause != null) {
+                if (cause instanceof TypeNotPresentException) {
+                    missingType = ((TypeNotPresentException) cause).typeName();
+                    break;
+                } else if (cause instanceof ClassNotFoundException) {
+                    missingType = cause.getMessage();
+                    break;
+                } else if (cause instanceof NoClassDefFoundError) {
+                    missingType = cause.getMessage();
+                    break;
+                }
+                cause = cause.getCause(); 
+            }
+
+            if (missingType != null) {
+                byteObf.err(ByteObf.LogLevel.WARN, "Dependency missing during common super class computation for types %s and %s: %s. " +
+                        "Falling back to java/lang/Object. This often means a required library is not added. " +
+                        "Please ensure all runtime dependencies of your input JAR are included in the 'Libraries' list.", type1, type2, missingType);
+                byteObf.log(ByteObf.LogLevel.DEBUG, "Stack trace for missing dependency:"); 
+                byteObf.logStackTrace(e);
+            } else {
+                
+                byteObf.err(ByteObf.LogLevel.WARN, "Unexpected error during common super class computation for types %s and %s: %s. " +
+                        "Falling back to java/lang/Object.", type1, type2, e.getMessage());
+                byteObf.log(ByteObf.LogLevel.DEBUG, "Stack trace for unexpected error:"); 
+                byteObf.logStackTrace(e);
+            }
+
+            
+            
+            
+            return "java/lang/Object";
         }
     }
 
     private String findTypeOrDefault(String type) {
-        var crt = this.byteObf.getTransformHandler().getClassTransformer(ClassRenamerTransformer.class);
+        if (byteObf.getTransformHandler() == null) {
+            return type;
+        }
+        var crt = byteObf.getTransformHandler().getClassTransformer(ClassRenamerTransformer.class);
         return crt.getMap().entrySet().stream()
                 .filter(entry -> entry.getValue().equals(type))
                 .map(Map.Entry::getKey)
@@ -54,6 +90,6 @@ public class CustomClassWriter extends ClassWriter {
 
     @Override
     public ClassLoader getClassLoader() {
-        return this.classLoader;
+        return super.getClassLoader();
     }
 }

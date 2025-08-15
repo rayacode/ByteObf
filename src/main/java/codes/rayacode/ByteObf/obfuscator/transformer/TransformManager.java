@@ -38,6 +38,7 @@ import org.objectweb.asm.tree.MethodNode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class TransformManager {
@@ -91,22 +92,27 @@ public class TransformManager {
     }
 
     public void transformAll() {
-        
+        if (ClassTransformer.classMap.isEmpty()) {
+            byteObf.log(ByteObf.LogLevel.INFO, "Building global class map for fast lookups...");
+            ClassTransformer.classMap.putAll(byteObf.getClasses().parallelStream()
+                    .collect(Collectors.toConcurrentMap(cn -> cn.name, Function.identity(), (a, b) -> a)));
+            byteObf.log(ByteObf.LogLevel.INFO, "Global class map built. Size: %d", ClassTransformer.classMap.size());
+        }
+
         final var map = new ConcurrentHashMap<String, String>();
         this.classTransformers.stream()
                 .filter(ClassTransformer::isEnabled)
                 .filter(ct -> ct instanceof RenamerTransformer)
-                .map(ct -> (RenamerTransformer)ct)
                 .forEach(crt -> {
-                    this.byteObf.log("Applying renamer %s", crt.getName());
+                    byteObf.log(ByteObf.LogLevel.INFO, "Applying renamer %s", crt.getName());
+                    crt.pre();
                     this.byteObf.getClasses().parallelStream().forEach(classNode -> this.transform(classNode, crt.getClass()));
                     this.byteObf.getResources().parallelStream().forEach(crt::transformResource);
-                    map.putAll(crt.getMap());
+                    map.putAll(((RenamerTransformer)crt).getMap());
                 });
 
-        
         if(this.byteObf.getConfig().getOptions().getRename() != ByteObfConfig.ByteObfOptions.RenameOption.OFF) {
-            this.byteObf.log("Applying renamer...");
+            byteObf.log(ByteObf.LogLevel.INFO, "Applying renamer...");
             var reMapper = new SimpleRemapper(map);
 
             List<ClassNode> remappedClasses = this.byteObf.getClasses().parallelStream()
@@ -124,37 +130,44 @@ public class TransformManager {
             }
         }
 
-        
-        this.classTransformers.stream()
-                .filter(ClassTransformer::isEnabled)
-                .forEach(ClassTransformer::pre);
-
-        
         this.classTransformers.stream()
                 .filter(ClassTransformer::isEnabled)
                 .filter(ct -> !(ct instanceof RenamerTransformer))
                 .forEach(ct -> {
-                    this.byteObf.log("Applying %s", ct.getName());
+                    byteObf.log(ByteObf.LogLevel.INFO, "Running pre-transformation for %s", ct.getName());
+                    ct.pre();
+                });
+
+        this.classTransformers.stream()
+                .filter(ClassTransformer::isEnabled)
+                .filter(ct -> !(ct instanceof RenamerTransformer))
+                .forEach(ct -> {
+                    byteObf.log(ByteObf.LogLevel.INFO, "Applying %s", ct.getName());
                     this.byteObf.getClasses().parallelStream().forEach(classNode -> this.transform(classNode, ct.getClass()));
                     this.byteObf.getResources().parallelStream().forEach(ct::transformResource);
                 });
 
-        
         this.classTransformers.stream()
                 .filter(ClassTransformer::isEnabled)
-                .forEach(ClassTransformer::post);
+                .forEach(ct -> {
+                    byteObf.log(ByteObf.LogLevel.INFO, "Running post-transformation for %s", ct.getName());
+                    ct.post();
+                });
     }
 
     public void transform(ClassNode classNode, Class<? extends ClassTransformer> transformerClass) {
         ClassTransformer classTransformer = this.getClassTransformer(transformerClass);
-        if(this.byteObf.isExcluded(classTransformer, classNode.name)) return;
+        if(this.byteObf.isExcluded(classTransformer, classNode.name)) {
+            
+            byteObf.log(ByteObf.LogLevel.DEBUG, "Skipping transformer '%s' for excluded class: %s", classTransformer.getName(), classNode.name);
+            return;
+        }
 
-        
         if (classTransformer instanceof ConstantTransformer ||
                 classTransformer instanceof LightControlFlowTransformer ||
                 classTransformer instanceof HeavyControlFlowTransformer) {
             if (ASMUtils.isClassTooComplex(classNode)) {
-                this.byteObf.log("Skipping transformer '%s' for overly complex class: %s", classTransformer.getName(), classNode.name);
+                byteObf.log(ByteObf.LogLevel.WARN, "Skipping transformer '%s' for overly complex class: %s", classTransformer.getName(), classNode.name);
                 return;
             }
         }
@@ -166,19 +179,17 @@ public class TransformManager {
         classNode.methods.stream()
                 .filter(methodNode -> !this.byteObf.isExcluded(classTransformer, ASMUtils.getName(classNode, methodNode)))
                 .forEach(methodNode -> {
-                    
                     AbstractInsnNode[] insns = methodNode.instructions.toArray().clone();
                     classTransformer.transformMethod(classNode, methodNode);
 
-                    
                     if (!ASMUtils.isMethodSizeValid(methodNode)) {
-                        this.byteObf.err("Reverting changes from \"%s\" on \"%s\" due to excessive method size after transform.", classTransformer.getName(), classNode.name + "." + methodNode.name + methodNode.desc);
+                        this.byteObf.err(ByteObf.LogLevel.ERROR, "Reverting changes from \"%s\" on \"%s\" due to excessive method size after transform.", classTransformer.getName(), classNode.name + "." + methodNode.name + methodNode.desc);
                         methodNode.instructions = ASMUtils.arrayToList(insns);
                     }
                 });
     }
 
-    @SuppressWarnings("unchecked") 
+    @SuppressWarnings("unchecked")
     public <T extends ClassTransformer> T getClassTransformer(Class<T> transformerClass) {
         if(transformerClass == null)
             throw new NullPointerException("transformerClass cannot be null");

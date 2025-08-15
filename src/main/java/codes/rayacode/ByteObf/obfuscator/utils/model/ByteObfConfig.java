@@ -93,7 +93,7 @@ public class ByteObfConfig {
             @SerializedName("Flow") FLOW
         }
 
-        
+
         private final RenameOption rename;
         private final LineNumberOption lineNumbers;
         private final LocalVariableOption localVariables;

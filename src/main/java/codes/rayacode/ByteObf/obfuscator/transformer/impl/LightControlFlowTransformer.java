@@ -55,7 +55,7 @@ public class LightControlFlowTransformer extends ControlFlowTransformer {
         if(!ASMUtils.isMethodEligibleToModify(classNode, methodNode)) return;
 
         if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
-            this.getByteObf().log("Skipping light control flow for already large method: %s.%s", classNode.name, methodNode.name);
+            this.getByteObf().log(ByteObf.LogLevel.WARN, "Skipping LightControlFlowTransformer for method %s.%s due to size exceeding threshold %d", classNode.name, methodNode.name, METHOD_SIZE_THRESHOLD);
             return;
         }
 

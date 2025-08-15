@@ -42,8 +42,6 @@ import javafx.stage.Window;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -104,8 +102,6 @@ public class Controller {
 
         obfuscationService.start();
     }
-
-    
 
     @FXML
     public void initialize() {
@@ -173,7 +169,7 @@ public class Controller {
             vBox.getChildren().add(label);
         }
 
-        exclude.setPromptText("com.example.myapp.MyClass\ncom.example.mypackage.**");
+        exclude.setPromptText("com.example.myapp.MyClass\ncom.example.mypackage.**\nregex:com\\.example\\..*\nglob:com/example/**\nConstantTransformer:com.example.MyClass.myMethod"); 
 
         final Function<ActionEvent, Window> getWindowFunc = actionEvent -> ((Button)actionEvent.getSource()).getScene().getWindow();
         final var jarFilter = new FileChooser.ExtensionFilter("JAR files (*.jar)", "*.jar");

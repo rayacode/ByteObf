@@ -84,7 +84,11 @@ public class App extends Application {
 
                 ByteObfConfig config = controller.configManager.generateConfig();
                 
-                ByteObf byteObf = new ByteObf(config, System.out::println, System.err::println);
+                
+                ByteObf byteObf = new ByteObf(config,
+                        msg -> System.out.println("[BYTEOBF] " + msg), 
+                        msg -> System.err.println("[BYTEOBF] [ERROR] " + msg) 
+                );
                 try {
                     byteObf.call(); 
                 } catch (Exception e) {

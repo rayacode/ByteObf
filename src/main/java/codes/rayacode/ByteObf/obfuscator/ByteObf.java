@@ -25,6 +25,8 @@ import codes.rayacode.ByteObf.obfuscator.utils.StringUtils;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfConfig;
 import codes.rayacode.ByteObf.obfuscator.utils.model.CustomClassWriter;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ResourceWrapper;
+import codes.rayacode.ByteObf.obfuscator.utils.ExclusionManager;
+import codes.rayacode.ByteObf.obfuscator.utils.AsyncFileLogger;
 import javafx.concurrent.Task;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -53,6 +55,10 @@ public class ByteObf extends Task<Void> {
     private final ByteObfConfig config;
     private final Consumer<String> logConsumer;
     private final Consumer<String> errConsumer;
+    private ExclusionManager exclusionManager;
+
+    
+    private static final LogLevel MIN_LOG_LEVEL_FOR_UI = LogLevel.INFO; 
 
     public ByteObf(ByteObfConfig config, Consumer<String> logConsumer, Consumer<String> errConsumer) {
         this.config = config;
@@ -67,15 +73,19 @@ public class ByteObf extends Task<Void> {
 
     @Override
     public Void call() throws Exception {
+        AsyncFileLogger.start();
+
         try {
             final long startTime = System.currentTimeMillis();
+
+            this.exclusionManager = new ExclusionManager(this.config.getExclude());
 
             if (!this.config.getInput().exists()) throw new FileNotFoundException("Cannot find input");
             if (!this.config.getInput().isFile()) throw new IllegalArgumentException("Received input is not a file");
 
             String inputExtension = this.config.getInput().getName().substring(this.config.getInput().getName().lastIndexOf(".") + 1).toLowerCase();
             if ("jar".equals(inputExtension)) {
-                log("Processing JAR input...");
+                log(LogLevel.INFO, "Processing JAR input...");
                 final Set<String> entryNames = new HashSet<>();
                 try (var jarInputStream = new ZipInputStream(Files.newInputStream(this.config.getInput().toPath()))) {
                     ZipEntry zipEntry;
@@ -92,7 +102,7 @@ public class ByteObf extends Task<Void> {
                                 resources.add(new ResourceWrapper(zipEntry, StreamUtils.readAll(jarInputStream)));
                             }
                         } else {
-                            log("Skipping duplicate resource/class entry: %s", zipEntry.getName());
+                            log(LogLevel.WARN, "Skipping duplicate resource/class entry: %s", zipEntry.getName());
                         }
                     }
                 }
@@ -110,17 +120,17 @@ public class ByteObf extends Task<Void> {
             }
             this.classLoader = new URLClassLoader(urls);
 
-            log("Transforming...");
+            log(LogLevel.INFO, "Transforming...");
             this.transformHandler = new TransformManager(this);
             transformHandler.transformAll();
 
-            log("Writing...");
+            log(LogLevel.INFO, "Writing...");
             final Set<String> writtenClassNames = ConcurrentHashMap.newKeySet();
             List<ClassNode> uniqueClasses = this.classes.stream()
                     .filter(cn -> !"module-info".equals(cn.name) && writtenClassNames.add(cn.name))
                     .collect(Collectors.toList());
             if (this.classes.size() != uniqueClasses.size()) {
-                log("Removed %d duplicate class entries before writing.", this.classes.size() - uniqueClasses.size());
+                log(LogLevel.INFO, "Removed %d duplicate class entries before writing.", this.classes.size() - uniqueClasses.size());
             }
 
             try (var out = new JarOutputStream(Files.newOutputStream(this.config.getOutput()))) {
@@ -134,14 +144,15 @@ public class ByteObf extends Task<Void> {
                                 out.putNextEntry(new JarEntry(resourceWrapper.getZipEntry().getName()));
                                 StreamUtils.copy(new ByteArrayInputStream(resourceWrapper.getBytes()), out);
                             } catch (Throwable e) {
-                                err("Cannot write resource: %s. Reason: %s", resourceWrapper.getZipEntry().getName(), e.getMessage());
+                                err(LogLevel.ERROR, "Cannot write resource: %s. Reason: %s", resourceWrapper.getZipEntry().getName(), e.getMessage());
+                                logStackTrace(e);
                             }
                         });
 
                 int total = uniqueClasses.size();
                 for (int i = 0; i < total; i++) {
                     if (isCancelled()) {
-                        log("Obfuscation cancelled.");
+                        log(LogLevel.INFO, "Obfuscation cancelled.");
                         break;
                     }
                     ClassNode classNode = uniqueClasses.get(i);
@@ -151,14 +162,15 @@ public class ByteObf extends Task<Void> {
                         classNode.accept(classWriter);
                         bytes = classWriter.toByteArray();
                     } catch (Throwable t) {
+                        err(LogLevel.WARN, "Could not process class %s with COMPUTE_FRAMES, falling back to COMPUTE_MAXS. Error: %s", classNode.name, t.getMessage());
+                        logStackTrace(t);
                         try {
-                            err("Could not process class %s with COMPUTE_FRAMES, falling back to COMPUTE_MAXS. Error: %s", classNode.name, t.getMessage());
                             var maxsWriter = new CustomClassWriter(this, ClassWriter.COMPUTE_MAXS, this.classLoader);
                             classNode.accept(maxsWriter);
                             bytes = maxsWriter.toByteArray();
                         } catch (Throwable t2) {
-                            err("Failed to process class %s even with COMPUTE_MAXS. Skipping. Final error: %s", classNode.name, t2.getMessage());
-                            t2.printStackTrace();
+                            err(LogLevel.ERROR, "Failed to process class %s even with COMPUTE_MAXS. Skipping. Final error: %s", classNode.name, t2.getMessage());
+                            logStackTrace(t2);
                             continue;
                         }
                     }
@@ -167,8 +179,8 @@ public class ByteObf extends Task<Void> {
                         out.putNextEntry(new JarEntry(classNode.name + ".class"));
                         out.write(bytes);
                     } catch (Throwable e) {
-                        err("Cannot write class: %s. Reason: %s", classNode.name, e.getMessage());
-                        e.printStackTrace();
+                        err(LogLevel.ERROR, "Cannot write class: %s. Reason: %s", classNode.name, e.getMessage());
+                        logStackTrace(e);
                     }
                     updateProgress(i + 1, total);
                 }
@@ -178,46 +190,29 @@ public class ByteObf extends Task<Void> {
                         .forEach(classTransformer -> classTransformer.transformOutput(out));
             }
 
-            log("Obfuscation process complete.");
+            log(LogLevel.INFO, "Obfuscation process complete.");
             final String timeElapsed = new DecimalFormat("##.###").format(((double) System.currentTimeMillis() - startTime) / 1000D);
-            log("Done. Took %ss", timeElapsed);
+            log(LogLevel.INFO, "Done. Took %ss", timeElapsed);
             final String oldSize = StringUtils.getConvertedSize(this.config.getInput().length());
             final String newSize = StringUtils.getConvertedSize(this.config.getOutput().toFile().length());
-            log("File size changed from %s to %s", oldSize, newSize);
+            log(LogLevel.INFO, "File size changed from %s to %s", oldSize, newSize);
         } catch (Throwable e) {
-            err("A critical error occurred during the obfuscation process: %s", e.getMessage());
-            e.printStackTrace();
+            err(LogLevel.ERROR, "A critical error occurred during the obfuscation process: %s", e.getMessage());
+            logStackTrace(e);
             updateMessage("Obfuscation failed. Please check the console for errors.");
             throw new Exception(e);
+        } finally {
+            AsyncFileLogger.stop();
         }
         return null;
     }
 
     public boolean isExcluded(ClassTransformer classTransformer, final String str) {
-        final String classNameWithDots = str.replace('/', '.');
-        return this.getConfig().getExclude().lines().anyMatch(line -> {
-            String cleanLine = line.trim();
-            if (cleanLine.isEmpty()) {
-                return false;
-            }
-
-            String targetTransformer = null;
-            if (cleanLine.contains(":")) {
-                targetTransformer = cleanLine.split(":")[0];
-                cleanLine = cleanLine.substring((targetTransformer + ":").length());
-            }
-
-            if (targetTransformer != null && (classTransformer == null || !classTransformer.getName().equals(targetTransformer))) {
-                return false;
-            }
-
-            if (cleanLine.endsWith(".**")) {
-                String basePackage = cleanLine.substring(0, cleanLine.length() - 2);
-                return classNameWithDots.startsWith(basePackage);
-            } else {
-                return classNameWithDots.equals(cleanLine);
-            }
-        });
+        String transformerSpecificRule = classTransformer.getName() + ":" + str;
+        if (exclusionManager.isExcluded(transformerSpecificRule)) {
+            return true;
+        }
+        return exclusionManager.isExcluded(str);
     }
 
     public TransformManager getTransformHandler() {
@@ -236,21 +231,32 @@ public class ByteObf extends Task<Void> {
         return config;
     }
 
-    public void log(String format, Object... args) {
-        String message = "[ByteObf] " + String.format(format, args);
-        updateMessage(message);
-        logConsumer.accept(message);
+    public void log(LogLevel level, String format, Object... args) {
+        String message = String.format("[%s] %s", level.name(), String.format(format, args));
+        
+        if (level.ordinal() >= MIN_LOG_LEVEL_FOR_UI.ordinal()) {
+            updateMessage(message); 
+            logConsumer.accept(message); 
+        }
+        AsyncFileLogger.log(message); 
     }
 
-    public void err(String format, Object... args) {
-        String message = "[ByteObf] [ERROR] " + String.format(format, args);
+    public void err(LogLevel level, String format, Object... args) {
+        String message = String.format("[%s] [ERROR] %s", level.name(), String.format(format, args));
+        
         updateMessage(message);
         errConsumer.accept(message);
-        try (FileWriter fw = new FileWriter("D:\\projects\\java\\javafx\\ByteObf\\log.txt", true);
-             PrintWriter pw = new PrintWriter(fw)) {
-            pw.println(message);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        AsyncFileLogger.log(message); 
+    }
+
+    public void logStackTrace(Throwable t) {
+        AsyncFileLogger.logStackTrace(t);
+    }
+
+    public enum LogLevel {
+        DEBUG, 
+        INFO,
+        WARN,
+        ERROR
     }
 }
