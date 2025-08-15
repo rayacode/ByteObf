@@ -105,11 +105,11 @@ public class Controller {
         obfuscationService.start();
     }
 
-    // The RedirectedPrintStream class is no longer necessary as we are handling logging directly.
+    
 
     @FXML
     public void initialize() {
-        // We will log directly to the console ListView now.
+        
         log("Initializing controller...");
 
         for (final ByteObfCategory category : ByteObfCategory.values()) {

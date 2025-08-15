@@ -33,7 +33,7 @@ import java.util.stream.IntStream;
 public class ConstantTransformer extends ClassTransformer {
 
     private static final int METHOD_SIZE_THRESHOLD = 30000;
-    // **FIX**: Prevent huge strings from being obfuscated, as they cause massive class bloat.
+    
     private static final int MAX_STRING_LENGTH_TO_OBFUSCATE = 128;
     private static final double INJECTION_RATE = 0.30;
 
@@ -63,7 +63,7 @@ public class ConstantTransformer extends ClassTransformer {
                     if(!canShift && type == 1) type--;
 
                     switch (type) {
-                        case 0 -> { // XOR
+                        case 0 -> { 
                             int xor1 = random.nextInt(Short.MAX_VALUE);
                             long xor2 = value ^ xor1;
                             switch (valueType) {
@@ -79,7 +79,7 @@ public class ConstantTransformer extends ClassTransformer {
                                 }
                             }
                         }
-                        case 1 -> { // Shift
+                        case 1 -> { 
                             switch (valueType) {
                                 case INTEGER -> {
                                     insnList.add(ASMUtils.pushInt((int) (value << shift)));
@@ -152,7 +152,7 @@ public class ConstantTransformer extends ClassTransformer {
                 .map(insn -> (LdcInsnNode)insn)
                 .forEach(ldc -> {
                     String s = (String) ldc.cst;
-                    // **FIX**: Add guard clauses to prevent processing huge strings or injecting too much code.
+                    
                     if (s.length() > MAX_STRING_LENGTH_TO_OBFUSCATE || s.isEmpty()) {
                         return;
                     }

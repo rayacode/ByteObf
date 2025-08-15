@@ -33,7 +33,7 @@ public class ASMUtils implements Opcodes {
 
     private ASMUtils() { }
 
-    // **NEW**: Thresholds to identify overly complex classes that should be skipped by heavy transformers.
+    
     public static final int CLASS_METHOD_COUNT_THRESHOLD = 400;
     public static final int CLASS_INSTRUCTION_COUNT_THRESHOLD = 100_000;
 

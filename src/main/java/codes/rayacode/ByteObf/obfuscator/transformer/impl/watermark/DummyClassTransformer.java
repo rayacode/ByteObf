@@ -39,7 +39,7 @@ public class DummyClassTransformer extends ClassTransformer {
     @Override
     public void transformOutput(JarOutputStream jarOutputStream) {
         ClassNode dummy = new ClassNode();
-        // Sanitize the class name to be a valid path.
+        
         String sanitizedClassName = this.getByteObf().getConfig().getOptions().getWatermarkOptions().getDummyClassText()
                 .replaceAll("[^a-zA-Z0-9/_-]", "_");
 

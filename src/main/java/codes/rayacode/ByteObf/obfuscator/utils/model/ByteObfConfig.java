@@ -93,7 +93,7 @@ public class ByteObfConfig {
             @SerializedName("Flow") FLOW
         }
 
-        // Obfuscation options
+        
         private final RenameOption rename;
         private final LineNumberOption lineNumbers;
         private final LocalVariableOption localVariables;
@@ -207,5 +207,5 @@ public class ByteObfConfig {
         }
     }
 
-    public static record EnableType(Supplier<Boolean> isEnabled, Object type) { }
+    public record EnableType(Supplier<Boolean> isEnabled, Object type) { }
 }

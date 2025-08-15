@@ -27,6 +27,8 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class MethodRenamerTransformer extends RenamerTransformer {
@@ -39,6 +41,8 @@ public class MethodRenamerTransformer extends RenamerTransformer {
     }
 
     private final List<String> whitelistedMethods = new ArrayList<>();
+    private final Map<String, List<ClassNode>> childrenMap = new ConcurrentHashMap<>();
+    private boolean hierarchyBuilt = false;
 
     public MethodRenamerTransformer(ByteObf byteObf) {
         super(byteObf, "Rename", ByteObfCategory.STABLE);
@@ -47,19 +51,55 @@ public class MethodRenamerTransformer extends RenamerTransformer {
                 "premain(Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V",
                 "agentmain(Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V",
 
-                // java/lang/Object
+                
                 "toString()Ljava/lang/String;",
                 "clone()Ljava/lang/Object;",
                 "equals(Ljava/lang/Object;)Z",
                 "hashCode()I"
 
-                // TODO: Hardcode other classes like java/lang/Enum or read all libraries as ClassNode objects
+                
         ));
+    }
+
+    /**
+     * **PERFORMANCE FIX:**
+     * Build a map of the entire class hierarchy *once*. This prevents the transformer
+     * from repeatedly scanning the entire class list for every single method.
+     */
+    private void buildHierarchy() {
+        if (hierarchyBuilt) return;
+
+        
+        
+        if (classMap.isEmpty()) {
+            this.getByteObf().log("Building class map for fast renamer lookups...");
+            classMap.putAll(this.getByteObf().getClasses().stream()
+                    .collect(Collectors.toConcurrentMap(cn -> cn.name, Function.identity(), (a, b) -> a)));
+            this.getByteObf().log("Class map built.");
+        }
+
+        
+        this.getByteObf().log("Building class hierarchy for renamer...");
+        for (ClassNode classNode : this.getByteObf().getClasses()) {
+            if (classNode.superName != null) {
+                childrenMap.computeIfAbsent(classNode.superName, k -> new ArrayList<>()).add(classNode);
+            }
+            for (String interfaceName : classNode.interfaces) {
+                childrenMap.computeIfAbsent(interfaceName, k -> new ArrayList<>()).add(classNode);
+            }
+        }
+        this.getByteObf().log("Class hierarchy built.");
+        hierarchyBuilt = true;
+    }
+
+    @Override
+    public void pre() {
+        buildHierarchy();
     }
 
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
-        // Exclusions
+        
         if ((classNode.access & ACC_ANNOTATION) != 0) return;
         if (methodNode.name.contains("<")) return;
         if (whitelistedMethods.contains(methodNode.name + methodNode.desc)) return;
@@ -67,19 +107,19 @@ public class MethodRenamerTransformer extends RenamerTransformer {
         final String mapName = ASMUtils.getName(classNode, methodNode);
 
         if ((methodNode.access & ACC_STATIC) != 0 || (methodNode.access & ACC_PRIVATE) != 0) {
-            // Directly map private/static methods
+            
             this.registerMap(mapName);
         } else {
             final Set<ClassMethodWrapper> sameMethods = new HashSet<>();
             ClassNode superClass = classNode;
 
-            // Base interface methods
+            
             if (!this.canAccessAllInterfaces(classNode)) return;
             var superInterfaces = new ArrayList<ClassNode>();
 
-            // Loop through super classes
+            
             while (true) {
-                // If getSuper() returns null but super is present, mark it as library override and don't rename it
+                
                 boolean isSuperPresent = this.isSuperPresent(superClass);
 
                 if ((superClass = this.getSuper(superClass)) == null) {
@@ -87,18 +127,18 @@ public class MethodRenamerTransformer extends RenamerTransformer {
                     break;
                 }
 
-                // Overridden super method
+                
                 MethodNode overriddenMethod = findOverriddenMethod(superClass, methodNode);
                 if (overriddenMethod != null) {
                     getSuperHierarchy(classNode, superClass).forEach(c -> sameMethods.add(new ClassMethodWrapper(c, overriddenMethod)));
                 }
 
-                // Super interfaces
+                
                 superInterfaces.addAll(this.getInterfaces(superClass));
                 if (!this.canAccessAllInterfaces(superClass)) return;
             }
 
-            // Look for overridden interface methods
+            
             superInterfaces.forEach(cn -> cn.methods.stream()
                     .filter(method -> (methodNode.access & ACC_STATIC) == 0 && (methodNode.access & ACC_PRIVATE) == 0)
                     .filter(method -> method.name.equals(methodNode.name))
@@ -110,14 +150,14 @@ public class MethodRenamerTransformer extends RenamerTransformer {
 
             boolean methodOverrideFound = sameMethods.size() > 0;
             if (methodOverrideFound) {
-                // Use the old map if it's already mapped, create a new one if it's not
+                
                 final String targetMap = sameMethods.stream()
                         .filter(cmw -> this.isMapRegistered(cmw.toString()))
                         .findFirst()
                         .map(cmw -> this.map.get(cmw.toString()))
                         .orElse(this.registerMap(mapName));
 
-                // Map all same methods
+                
                 sameMethods.stream()
                         .map(ClassMethodWrapper::toString)
                         .forEach(s -> this.registerMap(s, targetMap));
@@ -125,7 +165,7 @@ public class MethodRenamerTransformer extends RenamerTransformer {
                 var map = this.isMapRegistered(mapName) ? this.map.get(mapName) : this.registerMap(mapName);
                 this.getUpperSuperHierarchy(classNode).forEach(cn -> this.registerMap(ASMUtils.getName(cn, methodNode), map));
 
-                // Can't explain this cuz I can't understand either
+                
                 this.getUpperInterfaceHierarchy(classNode).forEach(cn -> {
                     this.registerMap(ASMUtils.getName(cn, methodNode), map);
                     this.getUpperSuperHierarchy(cn).forEach(cn2 -> this.registerMap(ASMUtils.getName(cn2, methodNode), map));
@@ -151,7 +191,7 @@ public class MethodRenamerTransformer extends RenamerTransformer {
                 .orElse(null);
     }
 
-    // TODO: Get rid of duplicates when renamer is stable
+    
 
     /**
      * @return all available interfaces and sub interfaces in the classNode
@@ -167,33 +207,29 @@ public class MethodRenamerTransformer extends RenamerTransformer {
     }
 
     /**
+     * **PERFORMANCE FIX:**
+     * Uses the pre-computed children map for fast lookups instead of scanning all classes.
      * @return all available class nodes that extends given class node
      */
     private List<ClassNode> getUpperSuperHierarchy(ClassNode classNode) {
-        var upperClasses = this.getByteObf().getClasses().stream()
-                .filter(cn -> cn.superName != null && classNode.name != null && cn.superName.equals(classNode.name))
-                .collect(Collectors.toList());
-        var tmpArr = upperClasses.stream()
+        List<ClassNode> upperClasses = new ArrayList<>();
+        List<ClassNode> children = childrenMap.getOrDefault(classNode.name, Collections.emptyList());
+        upperClasses.addAll(children);
+        children.stream()
                 .map(this::getUpperSuperHierarchy)
                 .flatMap(Collection::stream)
-                .collect(Collectors.toList());
-        upperClasses.addAll(tmpArr);
+                .forEach(upperClasses::add);
         return upperClasses;
     }
 
+
     /**
+     * **PERFORMANCE FIX:**
+     * Uses the pre-computed children map for fast lookups instead of scanning all classes.
      * @return all available class nodes that implements given class node
      */
     private List<ClassNode> getUpperInterfaceHierarchy(ClassNode classNode) {
-        var upperClasses = this.getByteObf().getClasses().stream()
-                .filter(cn -> cn.interfaces.contains(classNode.name))
-                .collect(Collectors.toList());
-        var tmpArr = upperClasses.stream()
-                .map(this::getUpperInterfaceHierarchy)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
-        upperClasses.addAll(tmpArr);
-        return upperClasses;
+        return getUpperSuperHierarchy(classNode); 
     }
 
     /**

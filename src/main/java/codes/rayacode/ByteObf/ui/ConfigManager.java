@@ -45,7 +45,7 @@ public class ConfigManager {
     public void loadConfig(File file) throws IOException {
         String str = Files.readString(file.toPath());
         try {
-            // Deserializer for input/output file
+            
             JsonDeserializer<ByteObfConfig> deserializer = (jsonElement, type, jsonDeserializationContext) -> {
                 try {
                     ByteObfConfig byteObfConfig = new Gson().fromJson(jsonElement, ByteObfConfig.class);
@@ -59,7 +59,7 @@ public class ConfigManager {
                 }
             };
 
-            // Load config
+            
             ByteObfConfig byteObfConfig = new GsonBuilder()
                     .registerTypeAdapter(ByteObfConfig.class, deserializer)
                     .create()
@@ -80,7 +80,7 @@ public class ConfigManager {
         c.exclude.setText(byteObfConfig.getExclude());
         c.libraries.getItems().addAll(byteObfConfig.getLibraries());
 
-        // Obfuscation options
+        
         c.getComboBox(LineNumberTransformer.class).getSelectionModel().select(ByteObfUtils.getSerializedName(byteObfConfig.getOptions().getLineNumbers()));
         c.getComboBox(LocalVariableTransformer.class).getSelectionModel().select(ByteObfUtils.getSerializedName(byteObfConfig.getOptions().getLocalVariables()));
         c.getComboBox(ClassRenamerTransformer.class).getSelectionModel().select(ByteObfUtils.getSerializedName(byteObfConfig.getOptions().getRename()));
@@ -91,7 +91,7 @@ public class ConfigManager {
         c.getCheckBox(CrasherTransformer.class).setSelected(byteObfConfig.getOptions().isCrasher());
         c.getComboBox(ConstantTransformer.class).getSelectionModel().select(ByteObfUtils.getSerializedName(byteObfConfig.getOptions().getConstantObfuscation()));
 
-        // Watermark options
+        
         c.getCheckBox(DummyClassTransformer.class).setSelected(byteObfConfig.getOptions().getWatermarkOptions().isDummyClass());
         c.getCheckBox(TextInsideClassTransformer.class).setSelected(byteObfConfig.getOptions().getWatermarkOptions().isTextInsideClass());
         c.getCheckBox(UnusedStringTransformer.class).setSelected(byteObfConfig.getOptions().getWatermarkOptions().isLdcPop());
@@ -105,7 +105,7 @@ public class ConfigManager {
 
     public void saveConfig(ByteObfConfig byteObfConfig) throws IOException {
         try (FileWriter fw = new FileWriter("byteobfconfig.json")) {
-            // Serializer for input/output file
+            
             JsonSerializer<ByteObfConfig> serializer = (cfg, type, jsonSerializationContext) -> {
                 JsonObject jsonObject = new JsonObject();
                 jsonObject.add("input", new JsonPrimitive(cfg.getInput().getAbsolutePath()));
@@ -115,7 +115,7 @@ public class ConfigManager {
                 return jsonObject;
             };
 
-            // Write config
+            
             fw.write(new GsonBuilder()
                     .registerTypeAdapter(ByteObfConfig.class, serializer)
                     .setPrettyPrinting()

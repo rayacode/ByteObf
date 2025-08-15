@@ -22,54 +22,54 @@ import codes.rayacode.ByteObf.obfuscator.ByteObf;
 import codes.rayacode.ByteObf.obfuscator.utils.StringUtils;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfCategory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public abstract class RenamerTransformer extends ClassTransformer {
 
-    protected final HashMap<String, String> map = new HashMap<>();
-    protected int index = 0;
+    protected final ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>();
+    protected final AtomicInteger index = new AtomicInteger(0);
 
     public RenamerTransformer(ByteObf byteObf, String text, ByteObfCategory category) {
         super(byteObf, text, category);
     }
 
     protected String registerMap(String key) {
-        var str = switch (this.getByteObf().getConfig().getOptions().getRename()) {
-            case ALPHABET -> StringUtils.getAlphabetCombinations().get(index);
-            case INVISIBLE -> String.valueOf((char)(index + '\u3050'));
-            case IlIlIlIlIl -> getRandomUniqueIl(400);
-            default -> throw new IllegalStateException("transformClass called while rename is disabled, this shouldn't happen");
-        };
-        map.put(key, str); index++;
-        return str;
+        return map.computeIfAbsent(key, k -> {
+            int currentIndex = index.getAndIncrement();
+            return switch (this.getByteObf().getConfig().getOptions().getRename()) {
+                case ALPHABET -> StringUtils.getAlphabetCombinations().get(currentIndex);
+                case INVISIBLE -> String.valueOf((char) (currentIndex + '\u3050'));
+                case IlIlIlIlIl -> getRandomUniqueIl(400);
+                default -> throw new IllegalStateException("transformClass called while rename is disabled, this shouldn't happen");
+            };
+        });
     }
 
-    private final List<String> IlList = new ArrayList<>();
+    private final Set<String> IlList = ConcurrentHashMap.newKeySet();
     private String getRandomUniqueIl(int length) {
         String s;
         do {
             s = IntStream.range(0, length)
                     .mapToObj(i -> (ThreadLocalRandom.current().nextBoolean()) ? "I" : "l")
                     .collect(Collectors.joining());
-        } while (IlList.contains(s));
-        IlList.add(s);
+        } while (!IlList.add(s));
         return s;
     }
 
     protected boolean isMapRegistered(String key) {
-        return map.get(key) != null;
+        return map.containsKey(key);
     }
 
     protected void registerMap(String key, String value) {
         map.put(key, value);
     }
 
-    public HashMap<String, String> getMap() {
+    public ConcurrentHashMap<String, String> getMap() {
         return map;
     }
 }

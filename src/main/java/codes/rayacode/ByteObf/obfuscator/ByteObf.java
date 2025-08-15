@@ -36,6 +36,7 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -59,8 +60,8 @@ public class ByteObf extends Task<Void> {
         this.errConsumer = errConsumer;
     }
 
-    private final List<ClassNode> classes = new ArrayList<>();
-    private final List<ResourceWrapper> resources = new ArrayList<>();
+    private final List<ClassNode> classes = Collections.synchronizedList(new ArrayList<>());
+    private final List<ResourceWrapper> resources = Collections.synchronizedList(new ArrayList<>());
     private ClassLoader classLoader;
     private TransformManager transformHandler;
 

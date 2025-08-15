@@ -36,8 +36,8 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class TransformManager {
@@ -91,48 +91,55 @@ public class TransformManager {
     }
 
     public void transformAll() {
-        // Apply renamer transformers
-        var map = new HashMap<String, String>();
+        
+        final var map = new ConcurrentHashMap<String, String>();
         this.classTransformers.stream()
                 .filter(ClassTransformer::isEnabled)
                 .filter(ct -> ct instanceof RenamerTransformer)
                 .map(ct -> (RenamerTransformer)ct)
                 .forEach(crt -> {
                     this.byteObf.log("Applying renamer %s", crt.getName());
-                    this.byteObf.getClasses().forEach(classNode -> this.transform(classNode, crt.getClass()));
-                    this.byteObf.getResources().forEach(crt::transformResource);
-                    map.putAll(crt.map);
+                    this.byteObf.getClasses().parallelStream().forEach(classNode -> this.transform(classNode, crt.getClass()));
+                    this.byteObf.getResources().parallelStream().forEach(crt::transformResource);
+                    map.putAll(crt.getMap());
                 });
 
-        // Remap classes
+        
         if(this.byteObf.getConfig().getOptions().getRename() != ByteObfConfig.ByteObfOptions.RenameOption.OFF) {
             this.byteObf.log("Applying renamer...");
             var reMapper = new SimpleRemapper(map);
-            for (int i = 0; i < this.byteObf.getClasses().size(); i++) {
-                ClassNode classNode = this.byteObf.getClasses().get(i);
-                ClassNode remappedClassNode = new ClassNode();
-                ClassRemapper adapter = new ClassRemapper(remappedClassNode, reMapper);
-                classNode.accept(adapter);
-                this.byteObf.getClasses().set(i, remappedClassNode);
+
+            List<ClassNode> remappedClasses = this.byteObf.getClasses().parallelStream()
+                    .map(classNode -> {
+                        ClassNode remappedClassNode = new ClassNode();
+                        ClassRemapper adapter = new ClassRemapper(remappedClassNode, reMapper);
+                        classNode.accept(adapter);
+                        return remappedClassNode;
+                    })
+                    .collect(Collectors.toList());
+
+            synchronized (this.byteObf.getClasses()) {
+                this.byteObf.getClasses().clear();
+                this.byteObf.getClasses().addAll(remappedClasses);
             }
         }
 
-        // Pre
+        
         this.classTransformers.stream()
                 .filter(ClassTransformer::isEnabled)
                 .forEach(ClassTransformer::pre);
 
-        // Transform all classes
+        
         this.classTransformers.stream()
                 .filter(ClassTransformer::isEnabled)
                 .filter(ct -> !(ct instanceof RenamerTransformer))
                 .forEach(ct -> {
                     this.byteObf.log("Applying %s", ct.getName());
-                    this.byteObf.getClasses().forEach(classNode -> this.transform(classNode, ct.getClass()));
-                    this.byteObf.getResources().forEach(ct::transformResource);
+                    this.byteObf.getClasses().parallelStream().forEach(classNode -> this.transform(classNode, ct.getClass()));
+                    this.byteObf.getResources().parallelStream().forEach(ct::transformResource);
                 });
 
-        // Post
+        
         this.classTransformers.stream()
                 .filter(ClassTransformer::isEnabled)
                 .forEach(ClassTransformer::post);
@@ -142,7 +149,7 @@ public class TransformManager {
         ClassTransformer classTransformer = this.getClassTransformer(transformerClass);
         if(this.byteObf.isExcluded(classTransformer, classNode.name)) return;
 
-        // **DEFINITIVE FIX**: Proactively skip heavy transformations on overly complex classes.
+        
         if (classTransformer instanceof ConstantTransformer ||
                 classTransformer instanceof LightControlFlowTransformer ||
                 classTransformer instanceof HeavyControlFlowTransformer) {
@@ -159,11 +166,11 @@ public class TransformManager {
         classNode.methods.stream()
                 .filter(methodNode -> !this.byteObf.isExcluded(classTransformer, ASMUtils.getName(classNode, methodNode)))
                 .forEach(methodNode -> {
-                    // Clone original instructions to allow reversion
+                    
                     AbstractInsnNode[] insns = methodNode.instructions.toArray().clone();
                     classTransformer.transformMethod(classNode, methodNode);
 
-                    // Revert changes if method size is invalid AFTER transformation (Reactive guard)
+                    
                     if (!ASMUtils.isMethodSizeValid(methodNode)) {
                         this.byteObf.err("Reverting changes from \"%s\" on \"%s\" due to excessive method size after transform.", classTransformer.getName(), classNode.name + "." + methodNode.name + methodNode.desc);
                         methodNode.instructions = ASMUtils.arrayToList(insns);
@@ -171,7 +178,7 @@ public class TransformManager {
                 });
     }
 
-    @SuppressWarnings("unchecked") // Checked using stream
+    @SuppressWarnings("unchecked") 
     public <T extends ClassTransformer> T getClassTransformer(Class<T> transformerClass) {
         if(transformerClass == null)
             throw new NullPointerException("transformerClass cannot be null");

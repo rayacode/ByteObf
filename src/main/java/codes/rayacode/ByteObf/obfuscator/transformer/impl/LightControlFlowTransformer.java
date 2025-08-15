@@ -43,7 +43,7 @@ public class LightControlFlowTransformer extends ControlFlowTransformer {
     private long flowFieldValue = 0;
     @Override
     public void transformClass(ClassNode classNode) {
-        // Skip interfaces because we cannot declare mutable fields in that
+        
         if(!ASMUtils.isClassEligibleToModify(classNode)) return;
 
         this.flowFieldValue = ThreadLocalRandom.current().nextLong();
@@ -59,7 +59,7 @@ public class LightControlFlowTransformer extends ControlFlowTransformer {
             return;
         }
 
-        // Main obfuscation
+        
         Arrays.stream(methodNode.instructions.toArray())
                 .filter(insn -> ASMUtils.isInvokeMethod(insn, true) || insn.getOpcode() == NEW || ASMUtils.isFieldInsn(insn))
                 .forEach(insn -> {

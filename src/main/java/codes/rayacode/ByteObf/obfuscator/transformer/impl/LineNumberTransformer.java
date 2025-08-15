@@ -45,7 +45,7 @@ public class LineNumberTransformer extends ClassTransformer {
             case RANDOMIZE -> Arrays.stream(methodNode.instructions.toArray())
                     .filter(insn -> insn instanceof LineNumberNode)
                     .map(insn -> (LineNumberNode)insn)
-                    // Character.MAX_VALUE is not a special requirement
+                    
                     .forEach(lineNumberNode -> lineNumberNode.line = this.random.nextInt(Character.MAX_VALUE));
         }
     }

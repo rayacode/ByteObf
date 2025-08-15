@@ -30,9 +30,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class HeavyControlFlowTransformer extends ControlFlowTransformer {
 
-    // If a method's initial size exceeds this, skip it to avoid performance issues and potential OOM errors.
+    
     private static final int METHOD_SIZE_THRESHOLD = 30000;
-    // To prevent methods from growing too large, only apply obfuscation to a fraction of the instructions.
+    
     private static final double INJECTION_RATE = 0.20;
 
     public HeavyControlFlowTransformer(ByteObf byteObf) {
@@ -52,7 +52,7 @@ public class HeavyControlFlowTransformer extends ControlFlowTransformer {
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
         if(!ASMUtils.isMethodEligibleToModify(classNode, methodNode)) return;
 
-        // **Proactive Skip**
+        
         if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
             this.getByteObf().log("Skipping heavy control flow for already large method: %s.%s", classNode.name, methodNode.name);
             return;
@@ -72,11 +72,11 @@ public class HeavyControlFlowTransformer extends ControlFlowTransformer {
             methodNode.instructions.insert(il);
         }
 
-        // Main obfuscation
+        
         Arrays.stream(methodNode.instructions.toArray())
                 .filter(insn -> ASMUtils.isInvokeMethod(insn, true) || insn.getOpcode() == NEW || ASMUtils.isFieldInsn(insn))
                 .forEach(insn -> {
-                    // **Adaptive Injection**
+                    
                     if (random.nextDouble() > INJECTION_RATE) return;
 
                     final InsnList before = new InsnList();

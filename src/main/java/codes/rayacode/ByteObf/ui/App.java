@@ -39,12 +39,12 @@ public class App extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-        // FX GUI
+        
         FXMLLoader fxmlLoader = new FXMLLoader();
         Parent root = fxmlLoader.load(getClass().getResource("/menu.fxml").openStream());
         Controller controller = fxmlLoader.getController();
 
-        // Handle command lines
+        
         CommandLineParser parser = new DefaultParser();
         try {
             CommandLine cmd = parser.parse(this.getOptions(), this.getParameters().getRaw().toArray(new String[0]));
@@ -62,7 +62,7 @@ public class App extends Application {
             if(cmd.hasOption("output"))
                 controller.output.setText(cmd.getOptionValue("output"));
 
-            // Update checker
+            
             String latestVer = null;
             if(!cmd.hasOption("noupdate")) {
                 try {
@@ -73,20 +73,20 @@ public class App extends Application {
                 }
             } else latestVer = ByteObfUtils.getVersion();
 
-            // Console mode
+            
             if(cmd.hasOption("console")) {
                 if(!cmd.hasOption("noupdate")) {
                     if(latestVer == null)
-                        System.out.println("[BYTEOBFGUI] " + ByteObfMessage.CANNOT_CHECK_UPDATE.toString());
+                        System.out.println("[BYTEOBFGUI] " + ByteObfMessage.CANNOT_CHECK_UPDATE);
                     else if(!ByteObfUtils.getVersion().equals(latestVer))
                         System.out.println("[BYTEOBFGUI] " + ByteObfMessage.NEW_UPDATE_AVAILABLE + latestVer);
                 }
 
                 ByteObfConfig config = controller.configManager.generateConfig();
-                // **FIX**: Provide the correct consumers for console mode logging.
+                
                 ByteObf byteObf = new ByteObf(config, System.out::println, System.err::println);
                 try {
-                    byteObf.call(); // Use call() now that it's a Task
+                    byteObf.call(); 
                 } catch (Exception e) {
                     e.printStackTrace();
                     logException(e);
@@ -102,7 +102,7 @@ public class App extends Application {
                     ByteObfUtils.openDownloadURL();
             }
 
-            // GUI
+            
             Scene scene = new Scene(root);
             stage.setTitle(ByteObfMessage.VERSION_TEXT.toString());
             stage.setScene(scene);

@@ -30,7 +30,9 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
 
@@ -40,6 +42,10 @@ public abstract class ClassTransformer implements Opcodes {
     private final String text;
     private final ByteObfCategory category;
     protected final Random random = new Random();
+
+    
+    
+    protected static final Map<String, ClassNode> classMap = new ConcurrentHashMap<>();
 
     public ClassTransformer(ByteObf byteObf, String text, ByteObfCategory category) {
         this.byteObf = byteObf;
@@ -88,10 +94,17 @@ public abstract class ClassTransformer implements Opcodes {
     }
 
     protected ClassNode findClass(String className) {
-        return this.getByteObf().getClasses().stream().filter(cn -> cn.name.equals(className)).findFirst().orElse(null);
+        
+        
+        
+        if (className == null) {
+            return null;
+        }
+        return classMap.get(className);
     }
 
     protected List<ClassNode> findClasses(List<String> classNames) {
+        
         return this.getByteObf().getClasses().stream()
                 .filter(cn -> classNames.contains(cn.name))
                 .collect(Collectors.toList());

@@ -26,6 +26,9 @@ import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfConfig;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
 
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 public class FieldRenamerTransformer extends RenamerTransformer {
 
     public FieldRenamerTransformer(ByteObf byteObf) {
@@ -33,8 +36,20 @@ public class FieldRenamerTransformer extends RenamerTransformer {
     }
 
     @Override
+    public void pre() {
+        
+        
+        if (classMap.isEmpty()) {
+            this.getByteObf().log("Building class map for fast renamer lookups...");
+            classMap.putAll(this.getByteObf().getClasses().stream()
+                    .collect(Collectors.toConcurrentMap(cn -> cn.name, Function.identity(), (a, b) -> a)));
+            this.getByteObf().log("Class map built.");
+        }
+    }
+
+    @Override
     public void transformClass(ClassNode classNode) {
-        // Map all fields in this class node and its super classes (if not mapped)
+        
         getSuperHierarchy(classNode)
                 .forEach(cn -> cn.fields.stream()
                         .filter(fieldNode -> !this.getByteObf().isExcluded(this, ASMUtils.getName(cn, fieldNode)))
@@ -42,8 +57,8 @@ public class FieldRenamerTransformer extends RenamerTransformer {
                         .forEach(fieldNode -> this.registerMap(getFieldMapFormat(cn, fieldNode)))
                 );
 
-        // Apply map to upper classes if a mapping is applied to a subclass
-        // So our mapper can rename references that access subfields from upper classes
+        
+        
         getSuperHierarchy(classNode)
                 .forEach(cn -> cn.fields.stream()
                         .filter(fieldNode -> this.isMapRegistered(getFieldMapFormat(cn, fieldNode)))

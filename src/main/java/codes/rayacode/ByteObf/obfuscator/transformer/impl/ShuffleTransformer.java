@@ -45,8 +45,10 @@ public class ShuffleTransformer extends ClassTransformer {
 
     private void shuffle() {
         var classes = this.getByteObf().getClasses();
+        
+        classes.parallelStream().forEach(ShuffleTransformer::shuffle);
+        
         Collections.shuffle(classes);
-        classes.forEach(ShuffleTransformer::shuffle);
     }
 
     private static void shuffle(ClassNode classNode) {
