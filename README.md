@@ -62,21 +62,27 @@ Command	Description
 -config	Path to a configuration file byteobfconfig.json
 -noupdate	Disables the startup update check.
 -console	Runs the application without a GUI and starts the obfuscation task immediately.
+```
 
 
+## Donations
+<div>
+<a href="https://nowpayments.io/donation?api_key=017232ce-743c-44ec-b2f6-185d447590ab">
+  <img src="https://nowpayments.io/images/embeds/donation-button-white.svg" alt="Cryptocurrency & Bitcoin donation button by NOWPayments">
+</a>
+</div>
 
-License
+## License
 
-    ByteObf is licensed under the terms of the GNU General Public License v3.0.
+ByteObf is licensed under the terms of the GNU General Public License v3.0.
 
-    Acknowledgements and Original License
-    This project, ByteObf, is a derivative work of the Bozar project, which was originally created by 
-    vimasig and licensed under the MIT license. The original copyright notice for the Bozar project is 
-    preserved below as required by its license.
+### Acknowledgements and Original License
 
- 
+This project, ByteObf, is a derivative work of the Bozar project, which was originally created by vimasig and licensed under the MIT license. The original copyright notice for the Bozar project is preserved below as required by its license.
 
-MIT License
+---
+
+### MIT License
 
 Copyright (c) 2021 vimasig
 
