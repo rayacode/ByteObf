@@ -66,6 +66,7 @@ Command	Description
 
 
 ## Donations
+Note: I’m continuing to develop and improve this project. Your support — even a small donation — helps motivate further progress and makes development more rewarding. Thank you! 
 <div>
 <a href="https://nowpayments.io/donation?api_key=017232ce-743c-44ec-b2f6-185d447590ab">
   <img src="https://nowpayments.io/images/embeds/donation-button-white.svg" alt="Cryptocurrency & Bitcoin donation button by NOWPayments">
