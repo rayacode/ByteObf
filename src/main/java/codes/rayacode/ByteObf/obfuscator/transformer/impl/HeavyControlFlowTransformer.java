@@ -13,14 +13,13 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  along with this program.  If not, see <https:
  */
 package codes.rayacode.ByteObf.obfuscator.transformer.impl;
 
 import codes.rayacode.ByteObf.obfuscator.ByteObf;
 import codes.rayacode.ByteObf.obfuscator.transformer.ControlFlowTransformer;
 import codes.rayacode.ByteObf.obfuscator.utils.ASMUtils;
-import codes.rayacode.ByteObf.obfuscator.utils.InsnBuilder;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfCategory;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfConfig;
 import org.objectweb.asm.tree.*;
@@ -30,105 +29,122 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class HeavyControlFlowTransformer extends ControlFlowTransformer {
 
-    
-    private static final int METHOD_SIZE_THRESHOLD = 30000;
-    
-    private static final double INJECTION_RATE = 0.20;
+
+    private static final int METHOD_SIZE_THRESHOLD = 15000;
+    private static final double INJECTION_RATE = 0.15;
+    private static final String FLOW_FIELD_NAME = String.valueOf((char) 5097);
 
     public HeavyControlFlowTransformer(ByteObf byteObf) {
         super(byteObf, "Control Flow obfuscation", ByteObfCategory.ADVANCED);
     }
 
-    private static final String FLOW_FIELD_NAME = String.valueOf((char)5097);
-    private static final int[] accessArr = new int[] { 0, ACC_PUBLIC, ACC_PRIVATE, ACC_PROTECTED };
-
     @Override
     public void transformClass(ClassNode classNode) {
-        if(!ASMUtils.isClassEligibleToModify(classNode)) return;
-        classNode.fields.add(new FieldNode(accessArr[ThreadLocalRandom.current().nextInt(accessArr.length)] | ACC_STATIC, FLOW_FIELD_NAME, "J", null, 0L));
+        if (!ASMUtils.isClassEligibleToModify(classNode)) return;
+
+        classNode.fields.add(new FieldNode(ACC_PUBLIC | ACC_STATIC | ACC_SYNTHETIC, FLOW_FIELD_NAME, "J", null, 0L));
     }
 
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
-        if(!ASMUtils.isMethodEligibleToModify(classNode, methodNode)) return;
+        if (!ASMUtils.isMethodEligibleToModify(classNode, methodNode)) return;
 
-        
-        if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
-            this.getByteObf().log(ByteObf.LogLevel.WARN, "Skipping HeavyControlFlowTransformer for method %s.%s due to size exceeding threshold %d", classNode.name, methodNode.name, METHOD_SIZE_THRESHOLD);
-            return;
+
+        if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) return;
+
+
+        if (Arrays.stream(methodNode.instructions.toArray()).noneMatch(ASMUtils::isIf)) {
+            injectDummyLoop(methodNode);
         }
 
-        if(Arrays.stream(methodNode.instructions.toArray()).noneMatch(ASMUtils::isIf)) {
-            final InsnList il = new InsnList();
-            final LabelNode label0 = new LabelNode();
-            final LabelNode label1 = new LabelNode();
-            il.add(new InsnNode(ICONST_1));
-            il.add(new JumpInsnNode(GOTO, label1));
-            il.add(label0);
-            il.add(new InsnNode(ICONST_5));
-            il.add(label1);
-            il.add(new InsnNode(ICONST_M1));
-            il.add(new JumpInsnNode(IF_ICMPLE, label0));
-            methodNode.instructions.insert(il);
+
+        AbstractInsnNode[] instructions = methodNode.instructions.toArray();
+        for (AbstractInsnNode insn : instructions) {
+
+            if (!(ASMUtils.isInvokeMethod(insn, true) || insn.getOpcode() == NEW || ASMUtils.isFieldInsn(insn))) {
+                continue;
+            }
+
+
+            if (ThreadLocalRandom.current().nextDouble() > INJECTION_RATE) continue;
+
+            int type = ThreadLocalRandom.current().nextInt(2);
+            if (type == 0) {
+                injectFakeJump(classNode, methodNode, insn);
+            } else {
+                injectSwitchFlow(classNode, methodNode, insn);
+            }
         }
+    }
 
-        
-        Arrays.stream(methodNode.instructions.toArray())
-                .filter(insn -> ASMUtils.isInvokeMethod(insn, true) || insn.getOpcode() == NEW || ASMUtils.isFieldInsn(insn))
-                .forEach(insn -> {
-                    
-                    if (random.nextDouble() > INJECTION_RATE) return;
+    private void injectDummyLoop(MethodNode methodNode) {
+        InsnList il = new InsnList();
+        LabelNode l1 = new LabelNode();
+        LabelNode l0 = new LabelNode();
+        il.add(new InsnNode(ICONST_1));
+        il.add(new JumpInsnNode(GOTO, l1));
+        il.add(l0);
+        il.add(new InsnNode(ICONST_5));
+        il.add(l1);
+        il.add(new InsnNode(ICONST_M1));
+        il.add(new JumpInsnNode(IF_ICMPLE, l0));
+        methodNode.instructions.insert(il);
+    }
 
-                    final InsnList before = new InsnList();
-                    final InsnList after = new InsnList();
+    private void injectFakeJump(ClassNode cn, MethodNode mn, AbstractInsnNode target) {
+        InsnList before = new InsnList();
+        InsnList after = new InsnList();
 
-                    switch (ThreadLocalRandom.current().nextInt(2)) {
-                        case 0 -> {
-                            final LabelNode label0 = new LabelNode();
-                            final LabelNode label1 = new LabelNode();
-                            final LabelNode label2 = new LabelNode();
-                            final LabelNode label3 = new LabelNode();
+        LabelNode lTrue = new LabelNode();
+        LabelNode lFalse = new LabelNode();
+        LabelNode lEnd = new LabelNode();
+        LabelNode lJunk = new LabelNode();
 
-                            before.add(ASMUtils.pushInt(ThreadLocalRandom.current().nextInt()));
-                            before.add(ASMUtils.pushInt(ThreadLocalRandom.current().nextInt()));
-                            before.add(label2);
-                            before.add(new InsnNode(POP2));
-                            before.add(new FieldInsnNode(GETSTATIC, classNode.name, FLOW_FIELD_NAME, "J"));
-                            long l;
-                            do {
-                                l = ThreadLocalRandom.current().nextLong();
-                            } while (l == 0);
-                            before.add(ASMUtils.pushLong(l));
-                            before.add(new InsnNode(LCMP));
-                            before.add(new InsnNode(ICONST_0));
-                            before.add(new InsnNode(SWAP));
-                            before.add(new InsnNode(DUP));
-                            before.add(new JumpInsnNode(IFEQ, label0));
-                            before.add(new JumpInsnNode(IFEQ, label3));
-                            before.add(new InsnNode(POP));
 
-                            after.add(new JumpInsnNode(GOTO, label1));
-                            after.add(label0);
-                            after.add(new InsnNode(POP));
-                            after.add(label3);
-                            after.add(new InsnNode(ICONST_0));
-                            after.add(new JumpInsnNode(GOTO, label2));
-                            after.add(label1);
-                        }
-                        case 1 -> {
-                            before.add(new FieldInsnNode(GETSTATIC, classNode.name, FLOW_FIELD_NAME, "J"));
-                            before.add(new InsnNode(L2I));
-                            before.add(getRandomLookupSwitch(2 + ThreadLocalRandom.current().nextInt(3),
-                                    0,
-                                    new SwitchBlock(InsnBuilder.createEmpty().getInsnList()),
-                                    () -> new SwitchBlock(InsnBuilder.createEmpty().getInsnList()),
-                                    InsnBuilder.createEmpty().insn(new InsnNode(ACONST_NULL), new InsnNode(ATHROW)).getInsnList()));
-                        }
-                    }
+        before.add(ASMUtils.pushInt(ThreadLocalRandom.current().nextInt()));
+        before.add(new InsnNode(POP));
+        before.add(new FieldInsnNode(GETSTATIC, cn.name, FLOW_FIELD_NAME, "J"));
+        long rand = ThreadLocalRandom.current().nextLong();
+        if (rand == 0) rand = 1;
+        before.add(ASMUtils.pushLong(rand));
+        before.add(new InsnNode(LCMP));
 
-                    methodNode.instructions.insertBefore(insn, before);
-                    methodNode.instructions.insert(insn, after);
-                });
+
+        before.add(new JumpInsnNode(IFEQ, lTrue));
+        before.add(new JumpInsnNode(GOTO, lJunk));
+
+        after.add(new JumpInsnNode(GOTO, lEnd));
+        after.add(lTrue);
+        after.add(new InsnNode(POP));
+        after.add(lJunk);
+        after.add(new InsnNode(ICONST_0));
+        after.add(new JumpInsnNode(GOTO, lTrue));
+        after.add(lEnd);
+
+        mn.instructions.insertBefore(target, before);
+        mn.instructions.insert(target, after);
+    }
+
+    private void injectSwitchFlow(ClassNode cn, MethodNode mn, AbstractInsnNode target) {
+        InsnList before = new InsnList();
+        before.add(new FieldInsnNode(GETSTATIC, cn.name, FLOW_FIELD_NAME, "J"));
+        before.add(new InsnNode(L2I));
+
+
+        LabelNode def = new LabelNode();
+        LabelNode targetL = new LabelNode();
+        LabelNode junkL = new LabelNode();
+
+        before.add(new LookupSwitchInsnNode(def, new int[]{0, 1}, new LabelNode[]{targetL, junkL}));
+
+        before.add(junkL);
+        before.add(new InsnNode(ACONST_NULL));
+        before.add(new InsnNode(ATHROW));
+
+        before.add(def);
+        before.add(targetL);
+
+        mn.instructions.insertBefore(target, before);
     }
 
     @Override

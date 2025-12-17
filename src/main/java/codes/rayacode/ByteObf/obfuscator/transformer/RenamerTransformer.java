@@ -13,25 +13,21 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  along with this program.  If not, see <https:
  */
-
 package codes.rayacode.ByteObf.obfuscator.transformer;
 
 import codes.rayacode.ByteObf.obfuscator.ByteObf;
-import codes.rayacode.ByteObf.obfuscator.utils.StringUtils;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfCategory;
+import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfConfig;
 
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 public abstract class RenamerTransformer extends ClassTransformer {
 
-    protected final ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>();
+
+    protected final ConcurrentHashMap<String, String> map = new ConcurrentHashMap<>(65536);
     protected final AtomicInteger index = new AtomicInteger(0);
 
     public RenamerTransformer(ByteObf byteObf, String text, ByteObfCategory category) {
@@ -39,37 +35,70 @@ public abstract class RenamerTransformer extends ClassTransformer {
     }
 
     protected String registerMap(String key) {
-        return map.computeIfAbsent(key, k -> {
-            int currentIndex = index.getAndIncrement();
-            return switch (this.getByteObf().getConfig().getOptions().getRename()) {
-                case ALPHABET -> StringUtils.getAlphabetCombinations().get(currentIndex);
-                case INVISIBLE -> String.valueOf((char) (currentIndex + '\u3050'));
-                case IlIlIlIlIl -> getRandomUniqueIl(400);
-                default -> throw new IllegalStateException("transformClass called while rename is disabled, this shouldn't happen");
-            };
-        });
+
+        return map.computeIfAbsent(key, k -> generateName(index.getAndIncrement()));
     }
 
-    private final Set<String> IlList = ConcurrentHashMap.newKeySet();
-    private String getRandomUniqueIl(int length) {
-        String s;
-        do {
-            s = IntStream.range(0, length)
-                    .mapToObj(i -> (ThreadLocalRandom.current().nextBoolean()) ? "I" : "l")
-                    .collect(Collectors.joining());
-        } while (!IlList.add(s));
-        return s;
+    protected String registerMap(String key, String forceValue) {
+        map.put(key, forceValue);
+        return forceValue;
     }
 
     protected boolean isMapRegistered(String key) {
         return map.containsKey(key);
     }
 
-    protected void registerMap(String key, String value) {
-        map.put(key, value);
-    }
-
     public ConcurrentHashMap<String, String> getMap() {
         return map;
+    }
+
+    /**
+     * Generates a unique name based on a numeric ID using Base-N encoding.
+     * Complexity: O(log_N(ID)) -> effectively O(1)
+     */
+    private String generateName(int id) {
+        ByteObfConfig.ByteObfOptions.RenameOption option = this.getByteObf().getConfig().getOptions().getRename();
+        switch (option) {
+            case ALPHABET:
+                return toBaseString(id, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ");
+            case INVISIBLE:
+                return generateInvisible(id);
+            case IlIlIlIlIl:
+                return generateIlIl(id);
+            default:
+                throw new IllegalStateException("Rename disabled or unknown");
+        }
+    }
+
+    private String generateIlIl(int id) {
+
+        String bin = Integer.toBinaryString(id + 1);
+        return bin.replace('0', 'I').replace('1', 'l');
+    }
+
+    private String generateInvisible(int id) {
+
+        char[] chars = {'\u200B', '\u200C', '\u200D'};
+        StringBuilder sb = new StringBuilder();
+        int n = id + 1;
+        while (n > 0) {
+            n--;
+            sb.append(chars[n % 3]);
+            n /= 3;
+        }
+        return sb.toString();
+    }
+
+    private String toBaseString(int n, String alphabet) {
+        int base = alphabet.length();
+        if (n == 0) return String.valueOf(alphabet.charAt(0));
+        StringBuilder sb = new StringBuilder();
+        while (n > 0) {
+            n--;
+            sb.append(alphabet.charAt(n % base));
+            n /= base;
+        }
+
+        return sb.reverse().toString();
     }
 }

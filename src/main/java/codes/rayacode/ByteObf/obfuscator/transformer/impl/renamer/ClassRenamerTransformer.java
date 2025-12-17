@@ -13,7 +13,7 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  along with this program.  If not, see <https:
  */
 
 package codes.rayacode.ByteObf.obfuscator.transformer.impl.renamer;
@@ -25,7 +25,14 @@ import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfConfig;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ResourceWrapper;
 import org.objectweb.asm.tree.ClassNode;
 
+import java.nio.charset.StandardCharsets;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 public class ClassRenamerTransformer extends RenamerTransformer {
+
+
+    private static final Pattern CLASS_REF_PATTERN = Pattern.compile("([a-zA-Z0-9_$]+[./])+[a-zA-Z0-9_$]+");
 
     public ClassRenamerTransformer(ByteObf byteObf) {
         super(byteObf, "Rename", ByteObfCategory.STABLE);
@@ -38,14 +45,47 @@ public class ClassRenamerTransformer extends RenamerTransformer {
 
     @Override
     public void transformResource(ResourceWrapper resource) {
-        if(resource.getZipEntry().isDirectory()) return;
+        if (resource.getZipEntry().isDirectory()) return;
 
-        String str = new String(resource.getBytes());
-        for (var set : map.entrySet()) {
-            String s1 = set.getKey().replace("/", ".");
-            String s2 = set.getValue().replace("/", ".");
-            str = str.replace(s1, s2);
-        } resource.setBytes(str.getBytes());
+
+        String name = resource.getZipEntry().getName().toLowerCase();
+        if (name.endsWith(".png") || name.endsWith(".jpg") || name.endsWith(".gif") ||
+                name.endsWith(".ico") || name.endsWith(".pdf") || name.endsWith(".dll") || name.endsWith(".so")) {
+            return;
+        }
+
+        try {
+            String content = new String(resource.getBytes(), StandardCharsets.UTF_8);
+            if (content.isEmpty()) return;
+
+
+            if (content.indexOf('.') == -1 && content.indexOf('/') == -1) return;
+
+            Matcher matcher = CLASS_REF_PATTERN.matcher(content);
+            StringBuilder sb = new StringBuilder(content.length());
+            boolean modified = false;
+
+            while (matcher.find()) {
+                String match = matcher.group();
+
+                String internalFormat = match.replace('.', '/');
+
+                String replacement = map.get(internalFormat);
+                if (replacement != null) {
+
+                    String finalReplacement = (match.contains(".")) ? replacement.replace('/', '.') : replacement;
+                    matcher.appendReplacement(sb, Matcher.quoteReplacement(finalReplacement));
+                    modified = true;
+                }
+            }
+
+            if (modified) {
+                matcher.appendTail(sb);
+                resource.setBytes(sb.toString().getBytes(StandardCharsets.UTF_8));
+            }
+        } catch (Exception e) {
+
+        }
     }
 
     @Override

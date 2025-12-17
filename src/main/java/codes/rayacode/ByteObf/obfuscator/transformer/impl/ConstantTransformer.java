@@ -13,7 +13,7 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  along with this program.  If not, see <https:
  */
 package codes.rayacode.ByteObf.obfuscator.transformer.impl;
 
@@ -24,213 +24,144 @@ import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfCategory;
 import codes.rayacode.ByteObf.obfuscator.utils.model.ByteObfConfig;
 import org.objectweb.asm.tree.*;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.IntStream;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ConstantTransformer extends ClassTransformer {
 
     private static final int METHOD_SIZE_THRESHOLD = 30000;
     private static final int MAX_STRING_LENGTH_TO_OBFUSCATE = 128;
-    private static final double INJECTION_RATE = 0.30;
+
+    private static final double INJECTION_RATE = 0.25;
 
     public ConstantTransformer(ByteObf byteObf) {
         super(byteObf, "Constant obfuscation", ByteObfCategory.ADVANCED);
     }
 
-    private void obfuscateNumbers(ClassNode classNode, MethodNode methodNode) {
-        Arrays.stream(methodNode.instructions.toArray())
-                .filter(insn -> ASMUtils.isPushInt(insn) || ASMUtils.isPushLong(insn))
-                .forEach(insn -> {
-                    if(random.nextDouble() > INJECTION_RATE) return;
-
-                    final InsnList insnList = new InsnList();
-                    final ValueType valueType = this.getValueType(insn);
-                    final long value = switch (valueType) {
-                        case INTEGER -> ASMUtils.getPushedInt(insn);
-                        case LONG -> ASMUtils.getPushedLong(insn);
-                    };
-
-                    int type = random.nextInt(2);
-                    final byte shift = 2;
-                    final boolean canShift = switch (valueType) {
-                        case INTEGER -> this.canShiftLeft(shift, value, Integer.MIN_VALUE);
-                        case LONG -> this.canShiftLeft(shift, value, Long.MIN_VALUE);
-                    };
-                    if(!canShift && type == 1) type--;
-
-                    switch (type) {
-                        case 0 -> { 
-                            int xor1 = random.nextInt(Short.MAX_VALUE);
-                            long xor2 = value ^ xor1;
-                            switch (valueType) {
-                                case INTEGER -> {
-                                    insnList.add(ASMUtils.pushInt(xor1));
-                                    insnList.add(ASMUtils.pushInt((int) xor2));
-                                    insnList.add(new InsnNode(IXOR));
-                                }
-                                case LONG -> {
-                                    insnList.add(ASMUtils.pushLong(xor1));
-                                    insnList.add(ASMUtils.pushLong(xor2));
-                                    insnList.add(new InsnNode(LXOR));
-                                }
-                            }
-                        }
-                        case 1 -> { 
-                            switch (valueType) {
-                                case INTEGER -> {
-                                    insnList.add(ASMUtils.pushInt((int) (value << shift)));
-                                    insnList.add(ASMUtils.pushInt(shift));
-                                    insnList.add(new InsnNode(IUSHR));
-                                }
-                                case LONG -> {
-                                    insnList.add(ASMUtils.pushLong(value << shift));
-                                    insnList.add(ASMUtils.pushInt(shift));
-                                    insnList.add(new InsnNode(LUSHR));
-                                }
-                            }
-                        }
-                    }
-
-                    if (this.getByteObf().getConfig().getOptions().getConstantObfuscation() == ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.FLOW) {
-                        final InsnList flow = new InsnList(), afterFlow = new InsnList();
-                        final LabelNode label0 = new LabelNode(), label1 = new LabelNode(), label2 = new LabelNode(), label3 = new LabelNode();
-                        int index = methodNode.maxLocals + 2;
-                        long rand0 = random.nextLong(), rand1 = random.nextLong();
-                        while (rand0 == rand1) rand1 = random.nextLong();
-
-                        flow.add(ASMUtils.pushLong(rand0));
-                        flow.add(ASMUtils.pushLong(rand1));
-                        flow.add(new InsnNode(LCMP));
-                        flow.add(new VarInsnNode(ISTORE, index));
-                        flow.add(new VarInsnNode(ILOAD, index));
-                        flow.add(new JumpInsnNode(IFNE, label0));
-                        flow.add(label3);
-                        flow.add(switch (valueType) {
-                            case INTEGER -> ASMUtils.pushInt(random.nextInt());
-                            case LONG -> ASMUtils.pushLong(random.nextLong());
-                        });
-                        flow.add(new JumpInsnNode(GOTO, label1));
-                        flow.add(label0);
-
-                        int alwaysNegative = 0;
-                        while (alwaysNegative >= 0) alwaysNegative = -random.nextInt(Integer.MAX_VALUE);
-
-                        afterFlow.add(label1);
-                        afterFlow.add(new VarInsnNode(ILOAD, index));
-                        afterFlow.add(ASMUtils.pushInt(random.nextInt(Integer.MAX_VALUE)));
-                        afterFlow.add(new InsnNode(IADD));
-                        afterFlow.add(ASMUtils.pushInt(alwaysNegative));
-                        afterFlow.add(new JumpInsnNode(IF_ICMPNE, label2));
-                        afterFlow.add(switch (valueType) {
-                            case INTEGER -> new InsnNode(POP);
-                            case LONG -> new InsnNode(POP2);
-                        });
-                        afterFlow.add(new JumpInsnNode(GOTO, label3));
-                        afterFlow.add(label2);
-
-                        methodNode.instructions.insertBefore(insn, flow);
-                        methodNode.instructions.insert(insn, afterFlow);
-                    }
-                    methodNode.instructions.insert(insn, insnList);
-                    methodNode.instructions.remove(insn);
-                });
-    }
-
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
-        if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) {
-            this.getByteObf().log(ByteObf.LogLevel.WARN, "Skipping ConstantTransformer for method %s.%s due to size exceeding threshold %d", classNode.name, methodNode.name, METHOD_SIZE_THRESHOLD);
-            return;
+        if (ASMUtils.getCodeSize(methodNode) > METHOD_SIZE_THRESHOLD) return;
+
+
+        AbstractInsnNode[] insns = methodNode.instructions.toArray();
+        for (AbstractInsnNode insn : insns) {
+            if (insn instanceof LdcInsnNode ldc && ldc.cst instanceof String s) {
+                if (s.length() > MAX_STRING_LENGTH_TO_OBFUSCATE || s.isEmpty()) continue;
+                if (ThreadLocalRandom.current().nextDouble() > INJECTION_RATE) continue;
+
+
+                methodNode.instructions.insertBefore(ldc, convertStringFast(s));
+                methodNode.instructions.remove(ldc);
+            }
         }
 
-        Arrays.stream(methodNode.instructions.toArray())
-                .filter(insn -> insn instanceof LdcInsnNode && ((LdcInsnNode)insn).cst instanceof String)
-                .map(insn -> (LdcInsnNode)insn)
-                .forEach(ldc -> {
-                    String s = (String) ldc.cst;
-                    if (s.length() > MAX_STRING_LENGTH_TO_OBFUSCATE || s.isEmpty()) {
-                        
-                        this.getByteObf().log(ByteObf.LogLevel.DEBUG, "Skipping string obfuscation for method %s.%s due to string length %d exceeding threshold %d or being empty.", classNode.name, methodNode.name, s.length(), MAX_STRING_LENGTH_TO_OBFUSCATE);
-                        return;
-                    }
-                    if (random.nextDouble() > INJECTION_RATE) return;
 
-                    methodNode.instructions.insertBefore(ldc, this.convertString(methodNode, s));
-                    methodNode.instructions.remove(ldc);
-                });
-
-        this.obfuscateNumbers(classNode, methodNode);
+        obfuscateNumbers(classNode, methodNode);
     }
+
+    private void obfuscateNumbers(ClassNode classNode, MethodNode methodNode) {
+        boolean isFlow = this.getByteObf().getConfig().getOptions().getConstantObfuscation() == ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.FLOW;
+
+        AbstractInsnNode[] insns = methodNode.instructions.toArray();
+        for (AbstractInsnNode insn : insns) {
+            if (!ASMUtils.isPushInt(insn) && !ASMUtils.isPushLong(insn)) continue;
+            if (ThreadLocalRandom.current().nextDouble() > INJECTION_RATE) continue;
+
+            ValueType valueType = getValueType(insn);
+            long value = (valueType == ValueType.INTEGER) ? ASMUtils.getPushedInt(insn) : ASMUtils.getPushedLong(insn);
+
+            InsnList replacement = new InsnList();
+
+
+            long key = ThreadLocalRandom.current().nextInt(Short.MAX_VALUE);
+            long enc = value ^ key;
+
+            if (valueType == ValueType.INTEGER) {
+                replacement.add(ASMUtils.pushInt((int) key));
+                replacement.add(ASMUtils.pushInt((int) enc));
+                replacement.add(new InsnNode(IXOR));
+            } else {
+                replacement.add(ASMUtils.pushLong(key));
+                replacement.add(ASMUtils.pushLong(enc));
+                replacement.add(new InsnNode(LXOR));
+            }
+
+
+            if (isFlow) {
+                InsnList flow = new InsnList();
+                LabelNode lTrue = new LabelNode();
+                LabelNode lFalse = new LabelNode();
+
+
+                flow.add(ASMUtils.pushInt(ThreadLocalRandom.current().nextInt()));
+                flow.add(ASMUtils.pushInt(ThreadLocalRandom.current().nextInt()));
+                flow.add(new JumpInsnNode(IF_ICMPEQ, lTrue));
+
+
+                flow.add(replacement);
+                flow.add(new JumpInsnNode(GOTO, lFalse));
+
+
+                flow.add(lTrue);
+                flow.add(new InsnNode(POP2));
+                flow.add((valueType == ValueType.INTEGER) ? ASMUtils.pushInt(0) : ASMUtils.pushLong(0));
+
+                flow.add(lFalse);
+
+                methodNode.instructions.insertBefore(insn, flow);
+                methodNode.instructions.remove(insn);
+            } else {
+                methodNode.instructions.insertBefore(insn, replacement);
+                methodNode.instructions.remove(insn);
+            }
+        }
+    }
+
+
+    private InsnList convertStringFast(String str) {
+        InsnList list = new InsnList();
+        list.add(ASMUtils.pushInt(str.length()));
+        list.add(new IntInsnNode(NEWARRAY, T_BYTE));
+
+        byte[] bytes = str.getBytes();
+        for (int i = 0; i < bytes.length; i++) {
+            list.add(new InsnNode(DUP));
+            list.add(ASMUtils.pushInt(i));
+            list.add(ASMUtils.pushInt(bytes[i]));
+            list.add(new InsnNode(BASTORE));
+        }
+
+        list.add(new TypeInsnNode(NEW, "java/lang/String"));
+        list.add(new InsnNode(DUP_X1));
+        list.add(new InsnNode(SWAP));
+        list.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([B)V", false));
+        return list;
+    }
+
 
     @Override
     public void transformField(ClassNode classNode, FieldNode fieldNode) {
-        if(fieldNode.value instanceof String)
-            if((fieldNode.access & ACC_STATIC) != 0)
-                this.addDirectInstructions(classNode, ASMUtils.findOrCreateClinit(classNode), fieldNode);
-            else
-                this.addDirectInstructions(classNode, ASMUtils.findOrCreateInit(classNode), fieldNode);
-    }
+        if (fieldNode.value instanceof String && (fieldNode.access & ACC_STATIC) != 0) {
 
-    private void addDirectInstructions(ClassNode classNode, MethodNode methodNode, FieldNode fieldNode) {
-        final InsnList insnList = new InsnList();
-        insnList.add(new LdcInsnNode(fieldNode.value));
-        int opcode = (fieldNode.access & ACC_STATIC) != 0 ? PUTSTATIC : PUTFIELD;
-        insnList.add(new FieldInsnNode(opcode, classNode.name, fieldNode.name, fieldNode.desc));
-        methodNode.instructions.insert(insnList);
-        fieldNode.value = null;
-    }
-
-    private InsnList convertString(MethodNode methodNode, String str) {
-        final InsnList insnList = new InsnList();
-        final int varIndex = methodNode.maxLocals + 1;
-        insnList.add(ASMUtils.pushInt(str.length()));
-        insnList.add(new IntInsnNode(NEWARRAY, T_BYTE));
-        insnList.add(new VarInsnNode(ASTORE, varIndex));
-        ArrayList<Integer> indexes = new ArrayList<>();
-        for(int i = 0; i < str.length(); i++) indexes.add(i);
-        Collections.shuffle(indexes);
-
-        for(int i = 0; i < str.length(); i++) {
-            int index = indexes.remove(0);
-            char ch = str.toCharArray()[index];
-            if(i == 0) {
-                insnList.add(new VarInsnNode(ALOAD, varIndex));
-                insnList.add(ASMUtils.pushInt(index));
-                insnList.add(ASMUtils.pushInt((byte)random.nextInt(Character.MAX_VALUE)));
-                insnList.add(new InsnNode(BASTORE));
-            }
-            insnList.add(new VarInsnNode(ALOAD, varIndex));
-            insnList.add(ASMUtils.pushInt(index));
-            insnList.add(ASMUtils.pushInt(ch));
-            insnList.add(new InsnNode(BASTORE));
+            MethodNode clinit = ASMUtils.findOrCreateClinit(classNode);
+            InsnList il = new InsnList();
+            il.add(new LdcInsnNode(fieldNode.value));
+            il.add(new FieldInsnNode(PUTSTATIC, classNode.name, fieldNode.name, fieldNode.desc));
+            clinit.instructions.insert(il);
+            fieldNode.value = null;
         }
-
-        insnList.add(new TypeInsnNode(NEW, "java/lang/String"));
-        insnList.add(new InsnNode(DUP));
-        insnList.add(new VarInsnNode(ALOAD, varIndex));
-        insnList.add(new MethodInsnNode(INVOKESPECIAL, "java/lang/String", "<init>", "([B)V", false));
-        return insnList;
     }
-
-    private boolean canShiftLeft(byte shift, long value, final long minValue) {
-        int power = (int) (Math.log(-(minValue >> 1)) / Math.log(2)) + 1;
-        return IntStream.range(0, shift).allMatch(i -> (value >> power - i) == 0);
-    }
-
-    private enum ValueType { INTEGER, LONG }
 
     private ValueType getValueType(AbstractInsnNode insn) {
-        if(ASMUtils.isPushInt(insn)) return ValueType.INTEGER;
-        if(ASMUtils.isPushLong(insn)) return ValueType.LONG;
+        if (ASMUtils.isPushInt(insn)) return ValueType.INTEGER;
+        if (ASMUtils.isPushLong(insn)) return ValueType.LONG;
         throw new IllegalArgumentException("Insn is not a push int/long instruction");
     }
 
     @Override
     public ByteObfConfig.EnableType getEnableType() {
-        return new ByteObfConfig.EnableType(() -> ((List<?>)this.getEnableType().type()).contains(this.getByteObf().getConfig().getOptions().getConstantObfuscation()),
-                List.of(ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.LIGHT, ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.FLOW));
+        return new ByteObfConfig.EnableType(() -> ((java.util.List<?>) this.getEnableType().type()).contains(this.getByteObf().getConfig().getOptions().getConstantObfuscation()),
+                java.util.List.of(ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.LIGHT, ByteObfConfig.ByteObfOptions.ConstantObfuscationOption.FLOW));
     }
+
+    private enum ValueType {INTEGER, LONG}
 }

@@ -13,7 +13,7 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  along with this program.  If not, see <https:
  */
 
 package codes.rayacode.ByteObf.obfuscator.transformer.impl.renamer;
@@ -28,135 +28,146 @@ import org.objectweb.asm.tree.MethodNode;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class MethodRenamerTransformer extends RenamerTransformer {
 
-    private record ClassMethodWrapper(ClassNode classNode, MethodNode methodNode) {
-        @Override
-        public String toString() {
-            return this.classNode.name + "." + this.methodNode.name + methodNode.desc;
-        }
-    }
-
-    private final List<String> whitelistedMethods = new ArrayList<>();
+    private final Set<String> whitelistedSignatures = ConcurrentHashMap.newKeySet();
     private final Map<String, List<ClassNode>> childrenMap = new ConcurrentHashMap<>();
-    private boolean hierarchyBuilt = false;
+    private final Map<String, Boolean> interfaceAccessCache = new ConcurrentHashMap<>();
+
 
     public MethodRenamerTransformer(ByteObf byteObf) {
         super(byteObf, "Rename", ByteObfCategory.STABLE);
-        whitelistedMethods.addAll(List.of(
+        whitelistedSignatures.addAll(List.of(
                 "main([Ljava/lang/String;)V",
                 "premain(Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V",
                 "agentmain(Ljava/lang/String;Ljava/lang/instrument/Instrumentation;)V",
-
-                
                 "toString()Ljava/lang/String;",
                 "clone()Ljava/lang/Object;",
                 "equals(Ljava/lang/Object;)Z",
                 "hashCode()I"
-
-                
         ));
-    }
-
-    private void buildHierarchy() {
-        if (hierarchyBuilt) return;
-
-        this.getByteObf().log(ByteObf.LogLevel.DEBUG, "Building class hierarchy for MethodRenamerTransformer..."); 
-        for (ClassNode classNode : this.getByteObf().getClasses()) {
-            if (classNode.superName != null) {
-                childrenMap.computeIfAbsent(classNode.superName, k -> new ArrayList<>()).add(classNode);
-            }
-            for (String interfaceName : classNode.interfaces) {
-                childrenMap.computeIfAbsent(interfaceName, k -> new ArrayList<>()).add(classNode);
-            }
-        }
-        this.getByteObf().log(ByteObf.LogLevel.DEBUG, "Class hierarchy built for MethodRenamerTransformer. Size: %d", childrenMap.size()); 
-        hierarchyBuilt = true;
     }
 
     @Override
     public void pre() {
-        buildHierarchy();
+        this.getByteObf().log(ByteObf.LogLevel.INFO, "Building class hierarchy for Method Renaming...");
+
+        this.getByteObf().getClasses().parallelStream().forEach(classNode -> {
+            if (classNode.superName != null) {
+                childrenMap.computeIfAbsent(classNode.superName, k -> Collections.synchronizedList(new ArrayList<>())).add(classNode);
+            }
+            for (String interfaceName : classNode.interfaces) {
+                childrenMap.computeIfAbsent(interfaceName, k -> Collections.synchronizedList(new ArrayList<>())).add(classNode);
+            }
+        });
     }
 
     @Override
     public void transformMethod(ClassNode classNode, MethodNode methodNode) {
-        
         if ((classNode.access & ACC_ANNOTATION) != 0) return;
-        if (methodNode.name.contains("<")) return;
-        if (whitelistedMethods.contains(methodNode.name + methodNode.desc)) return;
+        if (methodNode.name.startsWith("<")) return;
+
+
+        if (whitelistedSignatures.contains(methodNode.name + methodNode.desc)) return;
 
         final String mapName = ASMUtils.getName(classNode, methodNode);
 
+
         if ((methodNode.access & ACC_STATIC) != 0 || (methodNode.access & ACC_PRIVATE) != 0) {
-            
             this.registerMap(mapName);
         } else {
-            final Set<ClassMethodWrapper> sameMethods = new HashSet<>();
-            ClassNode superClass = classNode;
 
-            
             if (!this.canAccessAllInterfaces(classNode)) return;
-            var superInterfaces = new ArrayList<ClassNode>();
 
-            
-            while (true) {
-                
-                boolean isSuperPresent = this.isSuperPresent(superClass);
 
-                if ((superClass = this.getSuper(superClass)) == null) {
-                    if (isSuperPresent) return;
-                    break;
-                }
+            if (isLibraryOverride(classNode, methodNode)) return;
 
-                
-                MethodNode overriddenMethod = findOverriddenMethod(superClass, methodNode);
-                if (overriddenMethod != null) {
-                    getSuperHierarchy(classNode, superClass).forEach(c -> sameMethods.add(new ClassMethodWrapper(c, overriddenMethod)));
-                }
 
-                
-                superInterfaces.addAll(this.getInterfaces(superClass));
-                if (!this.canAccessAllInterfaces(superClass)) return;
+            String newName = this.isMapRegistered(mapName) ? this.map.get(mapName) : this.registerMap(mapName);
+
+
+            propagateRename(classNode, methodNode, newName);
+        }
+    }
+
+    /**
+     * Propagates a method rename to all children classes to ensure overrides remain valid.
+     * Uses a breadth-first traversal.
+     */
+    private void propagateRename(ClassNode root, MethodNode method, String newName) {
+        Queue<ClassNode> queue = new ArrayDeque<>();
+        queue.add(root);
+
+        Set<String> visited = new HashSet<>();
+        visited.add(root.name);
+
+        while (!queue.isEmpty()) {
+            ClassNode current = queue.poll();
+            String key = ASMUtils.getName(current, method);
+
+
+            if (!this.isMapRegistered(key)) {
+                this.registerMap(key, newName);
             }
 
-            
-            superInterfaces.forEach(cn -> cn.methods.stream()
-                    .filter(method -> (methodNode.access & ACC_STATIC) == 0 && (methodNode.access & ACC_PRIVATE) == 0)
-                    .filter(method -> method.name.equals(methodNode.name))
-                    .filter(method -> method.desc.equals(methodNode.desc))
-                    .findFirst()
-                    .ifPresentOrElse(method -> this.getInterfaceHierarchyFromSuper(classNode, cn).forEach(c -> sameMethods.add(new ClassMethodWrapper(c, method))), () -> {
-                    })
-            );
+            List<ClassNode> children = childrenMap.get(current.name);
+            if (children != null) {
 
-            boolean methodOverrideFound = sameMethods.size() > 0;
-            if (methodOverrideFound) {
-                
-                final String targetMap = sameMethods.stream()
-                        .filter(cmw -> this.isMapRegistered(cmw.toString()))
-                        .findFirst()
-                        .map(cmw -> this.map.get(cmw.toString()))
-                        .orElse(this.registerMap(mapName));
-
-                
-                sameMethods.stream()
-                        .map(ClassMethodWrapper::toString)
-                        .forEach(s -> this.registerMap(s, targetMap));
-            } else {
-                var map = this.isMapRegistered(mapName) ? this.map.get(mapName) : this.registerMap(mapName);
-                this.getUpperSuperHierarchy(classNode).forEach(cn -> this.registerMap(ASMUtils.getName(cn, methodNode), map));
-
-                
-                this.getUpperInterfaceHierarchy(classNode).forEach(cn -> {
-                    this.registerMap(ASMUtils.getName(cn, methodNode), map);
-                    this.getUpperSuperHierarchy(cn).forEach(cn2 -> this.registerMap(ASMUtils.getName(cn2, methodNode), map));
-                });
+                synchronized (children) {
+                    for (ClassNode child : children) {
+                        if (visited.add(child.name)) {
+                            queue.add(child);
+                        }
+                    }
+                }
             }
         }
+    }
+
+    private boolean isLibraryOverride(ClassNode classNode, MethodNode methodNode) {
+        String current = classNode.superName;
+
+
+        while (current != null) {
+            ClassNode parent = findClass(current);
+            if (parent == null) {
+
+
+                return true;
+            }
+            for (MethodNode m : parent.methods) {
+                if (m.name.equals(methodNode.name) && m.desc.equals(methodNode.desc)) return true;
+            }
+            current = parent.superName;
+        }
+        return false;
+    }
+
+    /**
+     * FIXED: This method triggered the "Recursive update" exception.
+     * Now uses get() -> compute -> put() pattern to avoid holding Map locks during recursion.
+     */
+    private boolean canAccessAllInterfaces(ClassNode classNode) {
+
+        Boolean cached = interfaceAccessCache.get(classNode.name);
+        if (cached != null) return cached;
+
+
+        boolean result = true;
+        var interfaces = this.findClasses(classNode.interfaces);
+
+
+        if (interfaces.size() != classNode.interfaces.size()) {
+            result = false;
+        } else {
+
+            result = interfaces.stream().allMatch(this::canAccessAllInterfaces);
+        }
+
+
+        interfaceAccessCache.put(classNode.name, result);
+        return result;
     }
 
     @Override
@@ -164,65 +175,10 @@ public class MethodRenamerTransformer extends RenamerTransformer {
         return new ByteObfConfig.EnableType(() -> this.getByteObf().getConfig().getOptions().getRename() != this.getEnableType().type(), ByteObfConfig.ByteObfOptions.RenameOption.OFF);
     }
 
-    private static MethodNode findOverriddenMethod(ClassNode classNode, MethodNode targetMethod) {
-        return classNode.methods.stream()
-                .filter(methodNode -> (methodNode.access & ACC_STATIC) == 0 && (methodNode.access & ACC_PRIVATE) == 0)
-                .filter(methodNode -> methodNode.name.equals(targetMethod.name))
-                .filter(methodNode -> methodNode.desc.equals(targetMethod.desc))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private List<ClassNode> getInterfaces(ClassNode classNode) {
-        var interfaces = this.findClasses(classNode.interfaces);
-        var tmpArr = interfaces.stream()
-                .map(this::getInterfaces)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
-        interfaces.addAll(tmpArr);
-        return interfaces;
-    }
-
-    private List<ClassNode> getUpperSuperHierarchy(ClassNode classNode) {
-        List<ClassNode> upperClasses = new ArrayList<>();
-        List<ClassNode> children = childrenMap.getOrDefault(classNode.name, Collections.emptyList());
-        upperClasses.addAll(children);
-        children.stream()
-                .map(this::getUpperSuperHierarchy)
-                .flatMap(Collection::stream)
-                .forEach(upperClasses::add);
-        return upperClasses;
-    }
-
-    private List<ClassNode> getUpperInterfaceHierarchy(ClassNode classNode) {
-        return getUpperSuperHierarchy(classNode);
-    }
-
-    private boolean canAccessAllInterfaces(ClassNode classNode) {
-        var interfaces = this.findClasses(classNode.interfaces);
-        boolean b = interfaces.size() == classNode.interfaces.size();
-        if (!b) return false;
-        return interfaces.size() == 0 || interfaces.stream().allMatch(this::canAccessAllInterfaces);
-    }
-
-    private List<ClassNode> getInterfaceHierarchyFromSuper(ClassNode base, ClassNode target) {
-        var list = new ArrayList<ClassNode>();
-        do {
-            var l = this.getInterfaces(base);
-            if (!l.isEmpty()) {
-                List<ClassNode> tmp = new ArrayList<>();
-                for (ClassNode iface : l) {
-                    tmp.add(iface);
-                    if (iface.equals(target)) {
-                        list.addAll(tmp);
-                        return list;
-                    }
-                }
-            }
-
-            list.add(base);
-            base = this.getSuper(base);
-        } while (base != null);
-        return new ArrayList<>();
+    private record ClassMethodWrapper(ClassNode classNode, MethodNode methodNode) {
+        @Override
+        public String toString() {
+            return this.classNode.name + "." + this.methodNode.name + methodNode.desc;
+        }
     }
 }
