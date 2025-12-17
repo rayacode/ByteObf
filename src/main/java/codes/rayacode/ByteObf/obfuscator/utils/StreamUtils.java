@@ -13,21 +13,44 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  along with this program.  If not, see <https:
  */
 
 package codes.rayacode.ByteObf.obfuscator.utils;
 
 import java.io.*;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 public class StreamUtils {
 
+    
+    public static byte[] readAll(InputStream in, int sizeEstimate) throws IOException {
+        if (sizeEstimate > 0) {
+            byte[] buffer = new byte[sizeEstimate];
+            int offset = 0;
+            int remaining = sizeEstimate;
+            int read;
+            while (remaining > 0 && (read = in.read(buffer, offset, remaining)) != -1) {
+                offset += read;
+                remaining -= read;
+            }
+            
+            if (remaining == 0 && in.read() == -1) {
+                return buffer;
+            }
+            
+            
+            ByteArrayOutputStream out = new ByteArrayOutputStream(sizeEstimate + 8192);
+            out.write(buffer, 0, offset);
+            copy(in, out);
+            return out.toByteArray();
+        } else {
+            return readAll(in);
+        }
+    }
 
     public static byte[] readAll(InputStream in) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buffer = new byte[0x1000];
+        byte[] buffer = new byte[0x4000]; 
         int read;
         while((read = in.read(buffer)) != -1)
             out.write(buffer, 0, read);
@@ -36,7 +59,7 @@ public class StreamUtils {
 
     public static void copy(InputStream in, OutputStream out) throws IOException {
         int read;
-        byte[] buffer = new byte[0x1000];
+        byte[] buffer = new byte[0x10000]; 
         while ((read = in.read(buffer)) != -1) {
             out.write(buffer, 0, read);
         }
